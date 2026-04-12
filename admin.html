@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WorkTracker — Admin Panel</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .user-card {
+      display:flex;align-items:center;gap:14px;padding:14px;
+      background:var(--bg-surface);border:1px solid var(--border);
+      border-radius:var(--radius-lg);transition:0.2s;
+    }
+    .user-card:hover { background:var(--bg-hover);border-color:var(--border-light); }
+    .user-card-info { flex:1; }
+    .user-card-name { font-weight:700;font-size:14px; }
+    .user-card-meta { font-size:12px;color:var(--text-3);margin-top:2px; }
+    .admin-tag { display:inline-block;padding:2px 8px;background:rgba(245,158,11,0.15);color:var(--gold);border-radius:999px;font-size:10px;font-weight:700;border:1px solid rgba(245,158,11,0.3);margin-left:8px; }
+    .user-detail-header { background:linear-gradient(135deg,var(--bg-card),var(--bg-hover));border:1px solid var(--border-light);border-radius:var(--radius-lg);padding:20px;margin-bottom:20px;display:flex;align-items:center;gap:16px; }
+  </style>
+</head>
+<body>
+<div class="app-wrapper">
+  <button class="menu-toggle" id="menuToggle">☰</button>
+  <aside class="sidebar" id="app-sidebar"></aside>
+
+  <main class="main-content fade-in">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">👑 Admin Panel</h1>
+        <p class="page-subtitle">Manage users, review records, compare performance</p>
+      </div>
+    </div>
+
+    <!-- Admin Tabs -->
+    <div class="admin-tabs">
+      <button class="admin-tab active" onclick="switchTab('users')">👥 Users</button>
+      <button class="admin-tab" onclick="switchTab('records')">📋 Records</button>
+      <button class="admin-tab" onclick="switchTab('comparison')">⚖️ Comparison</button>
+      <button class="admin-tab" onclick="switchTab('export')">📤 Export</button>
+      <button class="admin-tab" onclick="switchTab('settings')">⚙️ Settings</button>
+    </div>
+
+    <!-- TAB: USERS -->
+    <div id="tab-users" class="tab-content">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+        <!-- Create User -->
+        <div class="card">
+          <div class="card-title-lg">➕ Create New User</div>
+          <div class="form-group">
+            <label class="form-label">Full Name <span class="req">*</span></label>
+            <input type="text" id="newFullName" class="form-control" placeholder="e.g. Sarah Ahmed" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Username <span class="req">*</span></label>
+            <input type="text" id="newUsername" class="form-control" placeholder="e.g. sarah.ahmed" />
+            <div class="form-hint">Lowercase, no spaces</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password <span class="req">*</span></label>
+            <input type="password" id="newPassword" class="form-control" placeholder="Min. 6 characters" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role</label>
+            <select id="newRole" class="form-control">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="login-error" id="createError" style="margin-bottom:12px;"></div>
+          <button class="btn btn-primary" id="createUserBtn" onclick="createUser()" style="width:100%;justify-content:center;">
+            ⚔️ Create User
+          </button>
+        </div>
+
+        <!-- User List -->
+        <div class="card">
+          <div class="card-title-lg">👥 All Users</div>
+          <div id="userList" style="display:flex;flex-direction:column;gap:10px;">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Detail (shown when a user is selected) -->
+      <div id="userDetailSection" style="margin-top:24px;display:none;">
+        <div class="user-detail-header" id="userDetailHeader"></div>
+        <div class="kpi-grid" id="userDetailKPIs"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span class="card-title-lg mb-0" id="userDetailTitle">Records</span>
+          <button class="btn btn-success btn-sm" onclick="exportUserCSV()">📤 Export CSV</button>
+        </div>
+        <div class="table-wrapper" id="userDetailTable"></div>
+      </div>
+    </div>
+
+    <!-- TAB: RECORDS -->
+    <div id="tab-records" class="tab-content" style="display:none;">
+      <div class="filter-bar" style="margin-bottom:20px;">
+        <span class="filter-label">Member:</span>
+        <select class="form-control" id="recFilterUser" style="max-width:180px;"></select>
+        <span class="filter-label">Category:</span>
+        <select class="form-control" id="recFilterCat" style="max-width:150px;">
+          <option value="">All</option>
+          <option value="Support">Support</option>
+          <option value="Testing">Testing</option>
+          <option value="Project">Project</option>
+        </select>
+        <span class="filter-label">Month:</span>
+        <select class="form-control" id="recFilterMonth" style="max-width:150px;"></select>
+        <input type="text" class="form-control" id="recSearch" placeholder="🔍 Search…" style="max-width:180px;" />
+        <button class="btn btn-secondary btn-sm" onclick="clearRecFilters()">Clear</button>
+      </div>
+
+      <div class="card" style="padding:0;">
+        <div style="padding:14px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);">
+          <span class="card-title-lg mb-0">All Task Logs</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:12px;color:var(--text-3);" id="recRowCount">Loading…</span>
+            <button class="btn btn-success btn-sm" onclick="exportAllCSV()">📤 Export All CSV</button>
+          </div>
+        </div>
+        <div class="table-wrapper" style="border:none;border-radius:0;">
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Team Member</th><th>Task</th><th>Category</th>
+              <th>Hours</th><th>Accomplishment</th><th>Notes</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="recTableBody">
+              <tr><td colspan="8"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: COMPARISON -->
+    <div id="tab-comparison" class="tab-content" style="display:none;">
+      <div class="filter-bar" style="margin-bottom:20px;">
+        <span class="filter-label">Period:</span>
+        <select class="form-control" id="compPeriod" style="max-width:150px;" onchange="renderComparison()">
+          <option value="all">All Time</option>
+          <option value="month">This Month</option>
+          <option value="week">This Week</option>
+        </select>
+        <span class="filter-label">Month:</span>
+        <select class="form-control" id="compMonth" style="max-width:150px;" onchange="renderComparison()">
+          <option value="">All Months</option>
+        </select>
+      </div>
+
+      <div class="card" style="padding:0;margin-bottom:24px;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--border);">
+          <span class="card-title-lg mb-0">⚖️ Team Comparison</span>
+        </div>
+        <div class="table-wrapper" style="border:none;border-radius:0;">
+          <table class="comp-table">
+            <thead id="compHead"></thead>
+            <tbody id="compBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Mini charts per user -->
+      <div id="compCharts" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;"></div>
+    </div>
+
+    <!-- TAB: SETTINGS -->
+    <div id="tab-settings" class="tab-content" style="display:none;">
+      <div style="max-width:600px;">
+
+        <!-- War Days Off -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title-lg">⚠️ War Days Off — Global Setting</div>
+          <p style="color:var(--text-2);font-size:13px;margin-bottom:20px;line-height:1.6;">
+            Set the number of days the entire team was off due to war/conflict. This number is subtracted from everyone's
+            <strong style="color:var(--text-1)">actual working days</strong> count and from
+            <strong style="color:var(--text-1)">expected hours</strong> on their performance page.
+            War days are assumed to be standard 8-hour working days.
+          </p>
+          <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+            <div class="form-group mb-0" style="flex:1;min-width:180px;">
+              <label class="form-label">Number of War Days Off</label>
+              <input type="number" id="warDaysInput" class="form-control" min="0" max="365" step="1" placeholder="0" style="max-width:160px;" />
+              <div class="form-hint">Enter 0 to disable this deduction</div>
+            </div>
+            <button class="btn btn-primary" id="saveWarDaysBtn" onclick="saveWarDays()">💾 Save Setting</button>
+          </div>
+          <div id="warDaysCurrent" style="margin-top:16px;padding:12px 16px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);font-size:13px;color:var(--text-2);">
+            Loading current setting…
+          </div>
+        </div>
+
+        <!-- Working Period Info -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title-lg">📅 Tracker Configuration</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13px;">
+            <div style="padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);">
+              <div style="color:var(--text-3);font-size:11px;text-transform:uppercase;font-weight:600;margin-bottom:6px;">Start Date</div>
+              <div style="font-weight:700;color:var(--text-1);">March 3, 2026</div>
+            </div>
+            <div style="padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);">
+              <div style="color:var(--text-3);font-size:11px;text-transform:uppercase;font-weight:600;margin-bottom:6px;">Weekends</div>
+              <div style="font-weight:700;color:var(--text-1);">Friday & Saturday</div>
+            </div>
+            <div style="padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);">
+              <div style="color:var(--text-3);font-size:11px;text-transform:uppercase;font-weight:600;margin-bottom:6px;">Ramadan Period</div>
+              <div style="font-weight:700;color:#d8b4fe;">Feb 18 – Mar 20, 2026 (6h/day)</div>
+            </div>
+            <div style="padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);">
+              <div style="color:var(--text-3);font-size:11px;text-transform:uppercase;font-weight:600;margin-bottom:6px;">Normal Hours</div>
+              <div style="font-weight:700;color:var(--text-1);">8 hours/day</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kuwait Holidays -->
+        <div class="card">
+          <div class="card-title-lg">🇰🇼 Kuwait Public Holidays 2026</div>
+          <p style="color:var(--text-3);font-size:12px;margin-bottom:16px;">⚠️ Islamic holiday dates are approximate. Update <code style="background:var(--bg-surface);padding:2px 6px;border-radius:4px;">js/config.js</code> → <code>KUWAIT_HOLIDAYS_2026</code> if official dates differ.</p>
+          <div style="display:flex;flex-direction:column;gap:8px;" id="holidayList"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB: EXPORT -->
+    <div id="tab-export" class="tab-content" style="display:none;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
+        <div class="card">
+          <div class="card-title-lg">📤 All Records</div>
+          <p style="color:var(--text-2);font-size:13px;margin-bottom:16px;">Export the complete task log including all team members.</p>
+          <button class="btn btn-primary" onclick="exportAllCSV()" style="width:100%;justify-content:center;">⬇️ Download All Logs CSV</button>
+        </div>
+        <div class="card">
+          <div class="card-title-lg">👤 By User</div>
+          <p style="color:var(--text-2);font-size:13px;margin-bottom:16px;">Export logs for a specific team member.</p>
+          <select class="form-control" id="exportUserSel" style="margin-bottom:12px;"></select>
+          <button class="btn btn-secondary" onclick="exportSelectedUserCSV()" style="width:100%;justify-content:center;">⬇️ Download User CSV</button>
+        </div>
+        <div class="card">
+          <div class="card-title-lg">📅 By Month</div>
+          <p style="color:var(--text-2);font-size:13px;margin-bottom:16px;">Export logs for a specific month.</p>
+          <select class="form-control" id="exportMonthSel" style="margin-bottom:12px;"></select>
+          <button class="btn btn-secondary" onclick="exportMonthCSV()" style="width:100%;justify-content:center;">⬇️ Download Month CSV</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Edit Record Modal (Admin) -->
+<div class="modal-backdrop" id="adminEditModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">✏️ Edit Task Log</h2>
+      <button class="modal-close" onclick="closeAdminEdit()">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input type="date" id="aeDate" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Team Member</label>
+        <input type="text" id="aeMember" class="form-control" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Task / Project</label>
+      <input type="text" id="aeTask" class="form-control" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea id="aeDesc" class="form-control" rows="2"></textarea>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select id="aeCategory" class="form-control">
+          <option value="Support">Support</option>
+          <option value="Testing">Testing</option>
+          <option value="Project">Project</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Hours</label>
+        <input type="number" id="aeHours" class="form-control" min="0.25" max="24" step="0.25" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Accomplishment</label>
+      <input type="text" id="aeAccomp" class="form-control" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea id="aeNotes" class="form-control" rows="2"></textarea>
+    </div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeAdminEdit()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAdminEdit()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/utils.js"></script>
+<script>
+const session = requireAdmin();
+let allUsers = [], allLogs = [], selectedUserId = null, adminEditId = null;
+
+async function init() {
+  renderSidebar('admin');
+  loadSidebarStats(session.id);
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    document.getElementById('app-sidebar').classList.toggle('open');
+  });
+  await Promise.all([loadUsers(), loadAllLogs()]);
+  renderUserList();
+  populateFilters();
+  renderRecordsTable();
+  renderComparison();
+  setupExportSelects();
+}
+
+async function loadUsers() {
+  const { data } = await db.from('users').select('id, username, full_name, role, created_at').order('full_name');
+  allUsers = data || [];
+}
+
+async function loadAllLogs() {
+  const { data } = await db.from('task_logs').select('*, users(full_name)').order('log_date', { ascending: false });
+  allLogs = data || [];
+}
+
+// ── Tab switching ──────────────────────────────────────────
+const TAB_ORDER = ['users','records','comparison','export','settings'];
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${name}`).style.display = 'block';
+  const idx = TAB_ORDER.indexOf(name);
+  if (idx >= 0) document.querySelectorAll('.admin-tab')[idx].classList.add('active');
+  if (name === 'settings') loadSettingsTab();
+}
+
+// ── Settings Tab ───────────────────────────────────────────
+async function loadSettingsTab() {
+  // Load current war days
+  const { data } = await db.from('app_settings').select('value,updated_at').eq('key','war_days_off').maybeSingle();
+  const current = parseInt(data?.value || '0') || 0;
+  document.getElementById('warDaysInput').value = current;
+
+  const curEl = document.getElementById('warDaysCurrent');
+  if (current === 0) {
+    curEl.innerHTML = `<span style="color:var(--success)">✅ Currently: <strong>0 war days</strong> — no deduction applied to the team</span>`;
+  } else {
+    const updated = data?.updated_at ? `(last updated ${formatDate(data.updated_at)})` : '';
+    curEl.innerHTML = `<span style="color:var(--warning)">⚠️ Currently: <strong>${current} war day${current!==1?'s':''} off</strong> deducted from all team members' working day count ${updated}</span>`;
+  }
+
+  // Render holiday list
+  const listEl = document.getElementById('holidayList');
+  if (listEl) {
+    listEl.innerHTML = KUWAIT_HOLIDAYS_2026.map(d => {
+      const dow = new Date(d).toLocaleDateString('en-GB', { weekday: 'long' });
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);">
+        <span style="font-size:13px;font-weight:600;">📅 ${KUWAIT_HOLIDAY_LABELS[d] || 'Holiday'}</span>
+        <span style="font-size:12px;color:var(--text-3);">${dow}, ${formatDate(d)}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+async function saveWarDays() {
+  const btn = document.getElementById('saveWarDaysBtn');
+  const val = parseInt(document.getElementById('warDaysInput').value) || 0;
+  if (val < 0) { showToast('War days cannot be negative', 'warning'); return; }
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const { error } = await db
+    .from('app_settings')
+    .upsert({ key: 'war_days_off', value: String(val), label: 'War Days Off (global team deduction)', updated_by: session.id }, { onConflict: 'key' });
+
+  if (error) {
+    showToast('Failed to save: ' + error.message, 'error');
+  } else {
+    showToast(`War days set to ${val} — all team performance pages updated ✅`, 'success');
+    loadSettingsTab();
+  }
+  btn.disabled = false; btn.textContent = '💾 Save Setting';
+}
+
+// ── User Management ────────────────────────────────────────
+async function createUser() {
+  const btn = document.getElementById('createUserBtn');
+  const err = document.getElementById('createError');
+  err.classList.remove('show');
+
+  const fullName = document.getElementById('newFullName').value.trim();
+  const username = document.getElementById('newUsername').value.trim().toLowerCase().replace(/\s+/g,'');
+  const password = document.getElementById('newPassword').value;
+  const role     = document.getElementById('newRole').value;
+
+  if (!fullName || !username || !password) { err.textContent='All fields required'; err.classList.add('show'); return; }
+  if (password.length < 6) { err.textContent='Password must be at least 6 characters'; err.classList.add('show'); return; }
+
+  btn.disabled = true; btn.textContent = 'Creating…';
+  const hash = await hashPassword(password);
+  const { error } = await db.from('users').insert({ username, password_hash: hash, full_name: fullName, role });
+
+  if (error) {
+    err.textContent = error.code === '23505' ? 'Username already exists' : error.message;
+    err.classList.add('show');
+  } else {
+    showToast(`User "${fullName}" created!`, 'success');
+    document.getElementById('newFullName').value = '';
+    document.getElementById('newUsername').value = '';
+    document.getElementById('newPassword').value = '';
+    await loadUsers();
+    renderUserList();
+    populateFilters();
+    setupExportSelects();
+  }
+  btn.disabled = false; btn.textContent = '⚔️ Create User';
+}
+
+function renderUserList() {
+  const container = document.getElementById('userList');
+  if (!allUsers.length) { container.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">No users yet</div></div>'; return; }
+
+  container.innerHTML = allUsers.map(u => {
+    const userLogs  = allLogs.filter(l => l.user_id === u.id);
+    const totalHrs  = userLogs.reduce((s, l) => s + parseFloat(l.hours_spent||0), 0);
+    const lvl       = getUserLevel(totalHrs);
+    const initials  = u.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+    return `<div class="user-card">
+      <div class="user-avatar ${lvl.class}" style="width:40px;height:40px;font-size:13px;border-color:${lvl.color};background:linear-gradient(135deg,${lvl.color}33,${lvl.color}11)">${initials}</div>
+      <div class="user-card-info">
+        <div class="user-card-name">${u.full_name}${u.role==='admin'?'<span class="admin-tag">ADMIN</span>':''}</div>
+        <div class="user-card-meta">@${u.username} · ${lvl.icon} ${lvl.name} · ${totalHrs.toFixed(1)}h · ${userLogs.length} tasks</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="viewUser('${u.id}')">View →</button>
+    </div>`;
+  }).join('');
+}
+
+async function viewUser(uid) {
+  selectedUserId = uid;
+  const user    = allUsers.find(u => u.id === uid);
+  const logs    = allLogs.filter(l => l.user_id === uid);
+  const stats   = calculateStats(logs);
+  const lvl     = getUserLevel(stats.totalHours);
+  const initials = user.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+
+  const section = document.getElementById('userDetailSection');
+  section.style.display = 'block';
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  document.getElementById('userDetailHeader').innerHTML = `
+    <div class="user-avatar ${lvl.class}" style="border-color:${lvl.color};background:linear-gradient(135deg,${lvl.color}33,${lvl.color}11)">${initials}</div>
+    <div>
+      <div style="font-size:18px;font-weight:800;">${user.full_name}</div>
+      <div style="font-size:13px;color:var(--text-2);">@${user.username} · <span class="level-badge ${lvl.class}" style="padding:3px 10px;font-size:12px;">${lvl.icon} ${lvl.name} · Lv.${lvl.level}</span></div>
+    </div>`;
+
+  document.getElementById('userDetailKPIs').innerHTML = `
+    <div class="kpi-card accent-purple"><span class="kpi-icon">⏱️</span><div class="kpi-label">Total Hours</div><div class="kpi-value">${stats.totalHours}h</div></div>
+    <div class="kpi-card accent-gold"><span class="kpi-icon">📋</span><div class="kpi-label">Total Tasks</div><div class="kpi-value">${stats.totalTasks}</div></div>
+    <div class="kpi-card accent-teal"><span class="kpi-icon">🔥</span><div class="kpi-label">Max Streak</div><div class="kpi-value">${stats.maxStreak}d</div></div>
+    <div class="kpi-card accent-green"><span class="kpi-icon">🎯</span><div class="kpi-label">Accomplishment Rate</div><div class="kpi-value">${stats.accomplishmentRate}%</div></div>`;
+
+  document.getElementById('userDetailTitle').textContent = `${user.full_name}'s Records`;
+
+  if (!logs.length) {
+    document.getElementById('userDetailTable').innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No records yet</div></div>`;
+    return;
+  }
+  document.getElementById('userDetailTable').innerHTML = `
+    <table><thead><tr><th>Date</th><th>Task</th><th>Category</th><th>Hours</th><th>Accomplishment</th><th>Notes</th><th>Action</th></tr></thead>
+    <tbody>
+      ${logs.map(l => `<tr>
+        <td class="td-sm">${formatDate(l.log_date)}</td>
+        <td>${truncate(l.task_project,40)}</td>
+        <td>${categoryBadge(l.category)}</td>
+        <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
+        <td class="td-sm">${truncate(l.accomplishment,40)}</td>
+        <td class="td-muted td-sm">${truncate(l.comments_notes,35)}</td>
+        <td><button class="btn btn-secondary btn-sm btn-icon" onclick="openAdminEdit('${l.id}')">✏️</button></td>
+      </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function exportUserCSV() {
+  if (!selectedUserId) return;
+  const user = allUsers.find(u => u.id === selectedUserId);
+  const logs = allLogs.filter(l => l.user_id === selectedUserId).map(l => ({
+    date: l.log_date, member: l.team_member, task: l.task_project,
+    description: l.task_description, category: l.category, hours: l.hours_spent,
+    accomplishment: l.accomplishment, notes: l.comments_notes
+  }));
+  exportToCSV(logs, `${user.username}_logs.csv`);
+}
+
+// ── Records Tab ────────────────────────────────────────────
+function populateFilters() {
+  const userSelectors = ['recFilterUser', 'exportUserSel'];
+  userSelectors.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">All Members</option>';
+    allUsers.forEach(u => { const o = new Option(u.full_name, u.id); sel.appendChild(o); });
+  });
+  const months = [...new Set(allLogs.map(l => l.month))];
+  ['recFilterMonth','compMonth','exportMonthSel'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const defaultOpt = id === 'exportMonthSel' ? 'All Months' : (id === 'compMonth' ? 'All Months' : 'All Months');
+    sel.innerHTML = `<option value="">${defaultOpt}</option>`;
+    months.forEach(m => { const o = new Option(m, m); sel.appendChild(o); });
+  });
+  ['recFilterUser','recFilterCat','recFilterMonth','recSearch'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', renderRecordsTable);
+  });
+}
+
+function getFilteredRecords() {
+  const uid    = document.getElementById('recFilterUser').value;
+  const cat    = document.getElementById('recFilterCat').value;
+  const month  = document.getElementById('recFilterMonth').value;
+  const search = document.getElementById('recSearch').value.toLowerCase().trim();
+  return allLogs.filter(l => {
+    if (uid   && l.user_id  !== uid)  return false;
+    if (cat   && l.category !== cat)  return false;
+    if (month && l.month    !== month) return false;
+    if (search) {
+      const hay = [l.task_project, l.task_description, l.accomplishment, l.team_member, l.comments_notes].join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function clearRecFilters() {
+  ['recFilterUser','recFilterCat','recFilterMonth'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('recSearch').value = '';
+  renderRecordsTable();
+}
+
+function renderRecordsTable() {
+  const logs = getFilteredRecords();
+  document.getElementById('recRowCount').textContent = `${logs.length} records`;
+  const tbody = document.getElementById('recTableBody');
+  if (!logs.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No records found</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = logs.map(l => `<tr>
+    <td class="td-sm">${formatDate(l.log_date)}</td>
+    <td><strong>${l.team_member || l.users?.full_name || '—'}</strong></td>
+    <td>${truncate(l.task_project, 35)}</td>
+    <td>${categoryBadge(l.category)}</td>
+    <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
+    <td class="td-sm">${truncate(l.accomplishment, 35)}</td>
+    <td class="td-muted td-sm">${truncate(l.comments_notes, 30)}</td>
+    <td><button class="btn btn-secondary btn-sm btn-icon" onclick="openAdminEdit('${l.id}')">✏️</button></td>
+  </tr>`).join('');
+}
+
+// ── Comparison Tab ─────────────────────────────────────────
+function renderComparison() {
+  const period = document.getElementById('compPeriod').value;
+  const month  = document.getElementById('compMonth').value;
+  let filtered = [...allLogs];
+
+  if (period === 'month' || month) {
+    const m = month || getMonthName(new Date());
+    filtered = filtered.filter(l => l.month === m);
+  } else if (period === 'week') {
+    const wk = getWeekNumber(new Date());
+    filtered = filtered.filter(l => l.week_number === wk);
+  }
+
+  const userStats = allUsers.map(u => {
+    const logs  = filtered.filter(l => l.user_id === u.id);
+    const stats = calculateStats(logs);
+    const lvl   = getUserLevel(stats.totalHours);
+    return { user: u, stats, lvl };
+  });
+
+  // Build comparison table
+  const metrics = [
+    { key: 'totalHours',       label: 'Total Hours',        fmt: v => v+'h' },
+    { key: 'totalTasks',       label: 'Total Tasks',        fmt: v => v },
+    { key: 'supportHours',     label: 'Support Hours',      fmt: v => v+'h' },
+    { key: 'testingHours',     label: 'Testing Hours',      fmt: v => v+'h' },
+    { key: 'projectHours',     label: 'Project Hours',      fmt: v => v+'h' },
+    { key: 'maxStreak',        label: 'Best Streak',        fmt: v => v+'d' },
+    { key: 'accomplishmentRate',label:'Accomplishment %',   fmt: v => v+'%' },
+    { key: 'uniqueDays',       label: 'Days Active',        fmt: v => v },
+  ];
+
+  const head = document.getElementById('compHead');
+  const body = document.getElementById('compBody');
+
+  head.innerHTML = `<tr><th style="text-align:left;">Metric</th>${allUsers.map(u=>`<th>${u.full_name.split(' ')[0]}</th>`).join('')}</tr>`;
+
+  body.innerHTML = metrics.map(m => {
+    const values = userStats.map(us => us.stats[m.key]);
+    const max    = Math.max(...values);
+    return `<tr>
+      <td style="text-align:left;font-weight:600;font-size:13px;color:var(--text-2);">${m.label}</td>
+      ${values.map((v,i) => `<td class="${v===max && max>0 ? 'comp-winner' : ''}">${m.fmt(v)}</td>`).join('')}
+    </tr>`;
+  }).join('');
+
+  // Mini user cards in comparison
+  document.getElementById('compCharts').innerHTML = userStats.map(({user, stats, lvl}) => `
+    <div class="card card-sm">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <div class="user-avatar ${lvl.class}" style="width:36px;height:36px;font-size:12px;border-color:${lvl.color};background:linear-gradient(135deg,${lvl.color}33,${lvl.color}11)">
+          ${user.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2)}
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;">${user.full_name}</div>
+          <div style="font-size:11px;color:${lvl.color};">${lvl.icon} ${lvl.name}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+        <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3)">Hours</div><strong>${stats.totalHours}h</strong></div>
+        <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3)">Tasks</div><strong>${stats.totalTasks}</strong></div>
+        <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3)">Streak</div><strong>${stats.currentStreak}d 🔥</strong></div>
+        <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3)">Achieve%</div><strong>${stats.accomplishmentRate}%</strong></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Export Tab ─────────────────────────────────────────────
+function setupExportSelects() {
+  const exportUserSel = document.getElementById('exportUserSel');
+  if (exportUserSel) {
+    exportUserSel.innerHTML = '<option value="">Select Member</option>';
+    allUsers.forEach(u => { const o = new Option(u.full_name, u.id); exportUserSel.appendChild(o); });
+  }
+}
+
+function mapLogForExport(l) {
+  const user = allUsers.find(u => u.id === l.user_id);
+  return {
+    date: l.log_date, week: l.week_number, month: l.month,
+    team_member: l.team_member || user?.full_name || '', 
+    task_project: l.task_project, description: l.task_description,
+    category: l.category, hours_spent: l.hours_spent,
+    accomplishment: l.accomplishment, notes: l.comments_notes,
+  };
+}
+
+function exportAllCSV() {
+  exportToCSV(allLogs.map(mapLogForExport), `worktracker_all_logs_${new Date().toISOString().slice(0,10)}.csv`);
+  showToast('Exported all logs!', 'success');
+}
+
+function exportSelectedUserCSV() {
+  const uid = document.getElementById('exportUserSel').value;
+  if (!uid) { showToast('Please select a user first', 'warning'); return; }
+  const user = allUsers.find(u => u.id === uid);
+  const logs = allLogs.filter(l => l.user_id === uid).map(mapLogForExport);
+  exportToCSV(logs, `${user.username}_logs_${new Date().toISOString().slice(0,10)}.csv`);
+  showToast(`Exported ${user.full_name}'s logs!`, 'success');
+}
+
+function exportMonthCSV() {
+  const month = document.getElementById('exportMonthSel').value;
+  const logs  = (month ? allLogs.filter(l => l.month === month) : allLogs).map(mapLogForExport);
+  exportToCSV(logs, `worktracker_${month || 'all'}_${new Date().toISOString().slice(0,10)}.csv`);
+  showToast('Exported month logs!', 'success');
+}
+
+// ── Admin Edit Modal ───────────────────────────────────────
+function openAdminEdit(id) {
+  const log = allLogs.find(l => l.id === id);
+  if (!log) return;
+  adminEditId = id;
+  document.getElementById('aeDate').value     = log.log_date;
+  document.getElementById('aeMember').value   = log.team_member;
+  document.getElementById('aeTask').value     = log.task_project;
+  document.getElementById('aeDesc').value     = log.task_description;
+  document.getElementById('aeCategory').value = log.category;
+  document.getElementById('aeHours').value    = log.hours_spent;
+  document.getElementById('aeAccomp').value   = log.accomplishment;
+  document.getElementById('aeNotes').value    = log.comments_notes;
+  document.getElementById('adminEditModal').classList.add('open');
+}
+function closeAdminEdit() { document.getElementById('adminEditModal').classList.remove('open'); adminEditId = null; }
+
+async function saveAdminEdit() {
+  if (!adminEditId) return;
+  const dateVal = document.getElementById('aeDate').value;
+  const updates = {
+    team_member:      document.getElementById('aeMember').value.trim(),
+    log_date:         dateVal,
+    month:            getMonthName(dateVal),
+    week_number:      getWeekNumber(dateVal),
+    task_project:     document.getElementById('aeTask').value.trim(),
+    task_description: document.getElementById('aeDesc').value.trim(),
+    category:         document.getElementById('aeCategory').value,
+    hours_spent:      parseFloat(document.getElementById('aeHours').value),
+    accomplishment:   document.getElementById('aeAccomp').value.trim(),
+    comments_notes:   document.getElementById('aeNotes').value.trim(),
+  };
+  const { error } = await db.from('task_logs').update(updates).eq('id', adminEditId);
+  if (error) { showToast('Failed to save: ' + error.message, 'error'); }
+  else {
+    showToast('Record updated!', 'success');
+    closeAdminEdit();
+    await loadAllLogs();
+    renderUserList();
+    renderRecordsTable();
+    renderComparison();
+    if (selectedUserId) viewUser(selectedUserId);
+  }
+}
+
+document.getElementById('adminEditModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeAdminEdit(); });
+
+init();
+</script>
+</body>
+</html>
