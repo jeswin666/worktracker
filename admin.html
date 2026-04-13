@@ -249,6 +249,25 @@
   </main>
 </div>
 
+<!-- Delete User Modal -->
+<div class="modal-backdrop" id="deleteUserModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title">🗑️ Delete User</h2>
+      <button class="modal-close" onclick="closeDeleteUserModal()">✕</button>
+    </div>
+    <p style="color:var(--text-2);margin-bottom:8px;">
+      Are you sure you want to permanently delete <strong id="deleteUserName" style="color:var(--text-1)"></strong>?
+    </p>
+    <p id="deleteUserLogCount" style="color:var(--warning);font-size:13px;margin-bottom:24px;"></p>
+    <p style="color:var(--text-3);font-size:12px;margin-bottom:24px;">This action cannot be undone.</p>
+    <div style="display:flex;gap:12px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeDeleteUserModal()">Cancel</button>
+      <button class="btn btn-danger" id="confirmDeleteUserBtn" onclick="confirmDeleteUser()">🗑️ Delete User</button>
+    </div>
+  </div>
+</div>
+
 <!-- Edit Record Modal (Admin) -->
 <div class="modal-backdrop" id="adminEditModal">
   <div class="modal">
@@ -437,15 +456,62 @@ function renderUserList() {
     const totalHrs  = userLogs.reduce((s, l) => s + parseFloat(l.hours_spent||0), 0);
     const lvl       = getUserLevel(totalHrs);
     const initials  = u.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+    const isSelf    = u.id === session.id;
     return `<div class="user-card">
       <div class="user-avatar ${lvl.class}" style="width:40px;height:40px;font-size:13px;border-color:${lvl.color};background:linear-gradient(135deg,${lvl.color}33,${lvl.color}11)">${initials}</div>
       <div class="user-card-info">
         <div class="user-card-name">${u.full_name}${u.role==='admin'?'<span class="admin-tag">ADMIN</span>':''}</div>
         <div class="user-card-meta">@${u.username} · ${lvl.icon} ${lvl.name} · ${totalHrs.toFixed(1)}h · ${userLogs.length} tasks</div>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="viewUser('${u.id}')">View →</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="viewUser('${u.id}')">View →</button>
+        ${isSelf ? '' : `<button class="btn btn-danger btn-sm" onclick="openDeleteUserModal('${u.id}','${u.full_name.replace(/'/g,"\\'")}')">🗑️</button>`}
+      </div>
     </div>`;
   }).join('');
+}
+
+// ── Delete User ────────────────────────────────────────────
+let deletingUserId = null;
+
+function openDeleteUserModal(uid, name) {
+  deletingUserId = uid;
+  document.getElementById('deleteUserName').textContent = name;
+  const logs = allLogs.filter(l => l.user_id === uid).length;
+  document.getElementById('deleteUserLogCount').textContent = logs > 0
+    ? `⚠️ This will also permanently delete their ${logs} task log${logs!==1?'s':''}.`
+    : 'This user has no task logs.';
+  document.getElementById('deleteUserModal').classList.add('open');
+}
+
+function closeDeleteUserModal() {
+  document.getElementById('deleteUserModal').classList.remove('open');
+  deletingUserId = null;
+}
+
+async function confirmDeleteUser() {
+  if (!deletingUserId) return;
+  const btn = document.getElementById('confirmDeleteUserBtn');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+
+  // task_logs are cascade-deleted via FK, so just delete the user
+  const { error } = await db.from('users').delete().eq('id', deletingUserId);
+
+  if (error) {
+    showToast('Failed to delete user: ' + error.message, 'error');
+  } else {
+    showToast('User deleted successfully', 'success');
+    closeDeleteUserModal();
+    if (selectedUserId === deletingUserId) {
+      document.getElementById('userDetailSection').style.display = 'none';
+      selectedUserId = null;
+    }
+    await Promise.all([loadUsers(), loadAllLogs()]);
+    renderUserList();
+    populateFilters();
+    setupExportSelects();
+  }
+  btn.disabled = false; btn.textContent = '🗑️ Delete User';
 }
 
 async function viewUser(uid) {
@@ -726,6 +792,7 @@ async function saveAdminEdit() {
   }
 }
 
+document.getElementById('deleteUserModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteUserModal(); });
 document.getElementById('adminEditModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeAdminEdit(); });
 
 init();
