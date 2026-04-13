@@ -214,7 +214,6 @@
 <script src="js/utils.js"></script>
 <script>
 const session = requireAuth();
-let projectSubcats = [];
 
 async function init() {
   renderSidebar('log');
@@ -225,8 +224,8 @@ async function init() {
   });
   prefill();
   document.getElementById('logDate').addEventListener('change', onDateChange);
-  await loadProjectSubcats();
-  buildSubcatCards();
+  const subcats = await loadAllSubcats();
+  buildSubcatCards(subcats);
   loadTodayLogs();
 }
 
@@ -247,41 +246,38 @@ function onDateChange() {
   }
 }
 
-// ── Load project sub-cats from DB ──────────────────────────
-async function loadProjectSubcats() {
-  const { data } = await db.from('project_subcategories').select('name').order('sort_order').order('name');
-  projectSubcats = (data || []).map(r => r.name);
+// ── Load ALL sub-cats from DB ──────────────────────────────
+async function loadAllSubcats() {
+  const [supRes, tstRes, prjRes] = await Promise.all([
+    db.from('support_subcategories').select('name').order('sort_order').order('name'),
+    db.from('testing_subcategories').select('name').order('sort_order').order('name'),
+    db.from('project_subcategories').select('name').order('sort_order').order('name'),
+  ]);
+  return {
+    Support: (supRes.data || []).map(r => r.name),
+    Testing: (tstRes.data || []).map(r => r.name),
+    Project: (prjRes.data || []).map(r => r.name),
+  };
 }
 
 // ── Build subcategory card grid ────────────────────────────
-function buildSubcatCards() {
-  // Support cards
-  const supContainer = document.getElementById('supportCards');
-  supContainer.innerHTML = FIXED_SUBCATEGORIES.Support.map(sc =>
-    `<div class="subcat-card" id="sc-${sc.name.replace(/\s+/g,'-')}" onclick="selectSubcat('${sc.name}','Support')">
-      <span>${sc.icon}</span>${sc.name}
-    </div>`
-  ).join('');
+function buildSubcatCards(subcats) {
+  const icons = { Support:'🛡️', Testing:'🧪', Project:'🚀' };
+  const containers = { Support:'supportCards', Testing:'testingCards', Project:'projectCards' };
 
-  // Testing cards
-  const tstContainer = document.getElementById('testingCards');
-  tstContainer.innerHTML = FIXED_SUBCATEGORIES.Testing.map(sc =>
-    `<div class="subcat-card" id="sc-${sc.name.replace(/\s+/g,'-')}" onclick="selectSubcat('${sc.name}','Testing')">
-      <span>${sc.icon}</span>${sc.name}
-    </div>`
-  ).join('');
-
-  // Project cards
-  const prjContainer = document.getElementById('projectCards');
-  if (!projectSubcats.length) {
-    prjContainer.innerHTML = `<div style="font-size:12px;color:var(--text-3);">No project sub-categories defined yet. Ask your admin to add them in the Admin Panel → Settings.</div>`;
-    return;
-  }
-  prjContainer.innerHTML = projectSubcats.map(name =>
-    `<div class="subcat-card" id="sc-${name.replace(/\s+/g,'-')}" onclick="selectSubcat('${name}','Project')">
-      <span>🚀</span>${name}
-    </div>`
-  ).join('');
+  ['Support','Testing','Project'].forEach(cat => {
+    const el = document.getElementById(containers[cat]);
+    const names = subcats[cat] || [];
+    if (!names.length) {
+      el.innerHTML = `<div style="font-size:12px;color:var(--text-3);">No ${cat} sub-categories defined. Ask admin to add them in Settings.</div>`;
+      return;
+    }
+    el.innerHTML = names.map(name =>
+      `<div class="subcat-card" id="sc-${name.replace(/[^a-zA-Z0-9]/g,'-')}" onclick="selectSubcat('${name.replace(/'/g,"\'")}','${cat}')">
+        <span>${icons[cat]}</span>${name}
+      </div>`
+    ).join('');
+  });
 }
 
 // ── Sub-category selection ─────────────────────────────────
