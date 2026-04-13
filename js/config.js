@@ -3,8 +3,8 @@
 // ⚠️  Replace the values below with YOUR Supabase credentials
 // ============================================================
 
-const SUPABASE_URL      = 'https://vvuqhuvbwnlavnqmidlt.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2dXFodXZid25sYXZucW1pZGx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMTM4NDIsImV4cCI6MjA5MTU4OTg0Mn0.l8m5M_5AVupr6SmJv7ax9mQhtHni5S8_x5nLwpSsBNg';
+const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -89,3 +89,33 @@ const CAT_COLORS = {
   'Testing': { bg: '#2d1b69', border: '#8b5cf6', text: '#c4b5fd', dot: '#8b5cf6' },
   'Project': { bg: '#064e3b', border: '#10b981', text: '#6ee7b7', dot: '#10b981' },
 };
+
+// ============================================================
+// Sub-Category Definitions
+// ============================================================
+
+// Fixed sub-categories for Testing and Support
+const FIXED_SUBCATEGORIES = {
+  Support: [
+    { name: 'User Support',      icon: '👤' },
+    { name: 'D365 User Support', icon: '💼' },
+    { name: 'Report Support',    icon: '📊' },
+  ],
+  Testing: [
+    { name: 'Hardware Testing',  icon: '🔧' },
+    { name: 'Software Testing',  icon: '💻' },
+  ],
+};
+
+// Map subcategory name → parent category (for fixed ones)
+const SUBCAT_TO_CATEGORY = {
+  'User Support':      'Support',
+  'D365 User Support': 'Support',
+  'Report Support':    'Support',
+  'Hardware Testing':  'Testing',
+  'Software Testing':  'Testing',
+  // Project subcategories are dynamic — resolved at runtime
+};
+
+// Category icons
+const CAT_ICONS = { Support: '🛡️', Testing: '🧪', Project: '🚀' };
