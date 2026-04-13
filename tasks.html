@@ -81,6 +81,7 @@
   </style>
 </head>
 <body>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <div class="app-wrapper">
   <button class="menu-toggle" id="menuToggle">☰</button>
   <aside class="sidebar" id="app-sidebar"></aside>
@@ -184,14 +185,13 @@
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label">Category <span class="req">*</span></label>
-      <select id="logTaskCategory" class="form-control">
-        <option value="">Select category…</option>
-        <option value="Support">🛡️ Support</option>
-        <option value="Testing">🧪 Testing</option>
-        <option value="Project">🚀 Project</option>
+      <label class="form-label">Sub-Category <span class="req">*</span></label>
+      <select id="logTaskSubCategory" class="form-control" onchange="onSubcatChange()">
+        <option value="">Select sub-category…</option>
       </select>
+      <div class="form-hint">Parent category is set automatically.</div>
     </div>
+    <input type="hidden" id="logTaskCategory" />
     <div class="form-group">
       <label class="form-label">Key Accomplishment</label>
       <input type="text" id="logTaskAccomp" class="form-control" placeholder="What did you achieve?" />
@@ -225,7 +225,21 @@
 <script src="js/utils.js"></script>
 <script>
 const session = requireAuth();
+
+async function loadAllSubcats() {
+  const [supRes, tstRes, prjRes] = await Promise.all([
+    db.from('support_subcategories').select('name').order('sort_order').order('name'),
+    db.from('testing_subcategories').select('name').order('sort_order').order('name'),
+    db.from('project_subcategories').select('name').order('sort_order').order('name'),
+  ]);
+  return {
+    Support: (supRes.data || []).map(r => r.name),
+    Testing: (tstRes.data || []).map(r => r.name),
+    Project: (prjRes.data || []).map(r => r.name),
+  };
+}
 let allTasks = [], allUsers = [], activeUserId = session.id;
+let allSubcats = { Support: [], Testing: [], Project: [] };
 let selectedPriority = '';
 let loggingTaskId = null, deletingTaskId = null;
 
@@ -237,6 +251,7 @@ async function init() {
   loadSidebarStats(session.id);
   document.getElementById('menuToggle').addEventListener('click', () => {
     document.getElementById('app-sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
   });
 
   if (session.role === 'admin') {
@@ -246,6 +261,7 @@ async function init() {
     document.getElementById('pageSubtitle').textContent = 'View and manage all team priority tasks';
   }
 
+  allSubcats = await loadAllSubcats();
   await loadTasks();
   renderBoard();
 }
@@ -428,14 +444,37 @@ async function saveTask() {
 function openLogModal(id, title) {
   loggingTaskId = id;
   const today = getTodayInfo();
-  document.getElementById('logTaskTitle').value    = title;
-  document.getElementById('logTaskDesc').value     = '';
-  document.getElementById('logTaskDate').value     = today.date;
-  document.getElementById('logTaskHours').value    = '';
-  document.getElementById('logTaskCategory').value = '';
-  document.getElementById('logTaskAccomp').value   = '';
+  document.getElementById('logTaskTitle').value       = title;
+  document.getElementById('logTaskDesc').value        = '';
+  document.getElementById('logTaskDate').value        = today.date;
+  document.getElementById('logTaskHours').value       = '';
+  document.getElementById('logTaskCategory').value    = '';
+  document.getElementById('logTaskSubCategory').value = '';
+  document.getElementById('logTaskAccomp').value      = '';
   document.getElementById('logModalError').classList.remove('show');
+
+  // Populate subcategory dropdown
+  const sel = document.getElementById('logTaskSubCategory');
+  sel.innerHTML = '<option value="">Select sub-category…</option>';
+  const icons = { Support:'🛡️', Testing:'🧪', Project:'🚀' };
+  ['Support','Testing','Project'].forEach(cat => {
+    const group = document.createElement('optgroup');
+    group.label = icons[cat] + ' ' + cat;
+    (allSubcats[cat] || []).forEach(name => {
+      const opt = new Option(name, name);
+      opt.dataset.cat = cat;
+      group.appendChild(opt);
+    });
+    sel.appendChild(group);
+  });
+
   document.getElementById('logModal').classList.add('open');
+}
+
+function onSubcatChange() {
+  const sel = document.getElementById('logTaskSubCategory');
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('logTaskCategory').value = opt?.dataset?.cat || '';
 }
 function closeLogModal() { document.getElementById('logModal').classList.remove('open'); loggingTaskId = null; }
 
@@ -447,10 +486,12 @@ async function submitTaskLog() {
   const hours    = parseFloat(document.getElementById('logTaskHours').value);
   const category = document.getElementById('logTaskCategory').value;
   const title    = document.getElementById('logTaskTitle').value.trim();
+  const subcat   = document.getElementById('logTaskSubCategory').value;
 
-  if (!title)    { err.textContent = 'Title is required';           err.classList.add('show'); return; }
-  if (!category) { err.textContent = 'Please select a category';    err.classList.add('show'); return; }
-  if (!hours || hours <= 0) { err.textContent = 'Enter valid hours'; err.classList.add('show'); return; }
+  if (!title)    { err.textContent = 'Title is required';               err.classList.add('show'); return; }
+  if (!subcat)   { err.textContent = 'Please select a sub-category';    err.classList.add('show'); return; }
+  if (!category) { err.textContent = 'Sub-category has no parent category — please re-select'; err.classList.add('show'); return; }
+  if (!hours || hours <= 0) { err.textContent = 'Enter valid hours';    err.classList.add('show'); return; }
 
   btn.disabled = true; btn.textContent = 'Saving…';
 
@@ -464,6 +505,7 @@ async function submitTaskLog() {
     task_project:     title,
     task_description: document.getElementById('logTaskDesc').value.trim(),
     category,
+    sub_category:     document.getElementById('logTaskSubCategory').value,
     hours_spent:      hours,
     accomplishment:   document.getElementById('logTaskAccomp').value.trim(),
     comments_notes:   '',
