@@ -65,27 +65,47 @@ function getDailyHours(date) {
 
 /**
  * Calculate working days and expected hours from TRACKER_START_DATE to today.
- * Excludes: Fri/Sat weekends, Kuwait public holidays, war days (global deduction).
+ * Excludes: Fri/Sat weekends, Kuwait public holidays, war days (global),
+ * and per-user approved leave date ranges.
  *
- * @param {number} warDaysOff
+ * @param {number} warDaysOff   - Global war days deduction
+ * @param {Array}  userLeaves   - Array of {start_date, end_date} for this user
  * @returns {object}
  */
-function getWorkingDaysInfo(warDaysOff = 0) {
+function getWorkingDaysInfo(warDaysOff = 0, userLeaves = []) {
   const start = new Date(TRACKER_START_DATE);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  // Build a set of leave dates for fast lookup
+  const leaveDateSet = new Set();
+  (userLeaves || []).forEach(lv => {
+    const s = new Date(lv.start_date); s.setHours(0,0,0,0);
+    const e = new Date(lv.end_date);   e.setHours(0,0,0,0);
+    const c = new Date(s);
+    while (c <= e) {
+      leaveDateSet.add(toDateStr(c));
+      c.setDate(c.getDate() + 1);
+    }
+  });
 
   let rawWorkingDays     = 0;
   let rawExpectedHours   = 0;
   let ramadanWorkingDays = 0;
   let normalWorkingDays  = 0;
   let holidayCount       = 0;
+  let leaveDays          = 0;
+  let leaveHours         = 0;
 
   const cur = new Date(start);
   while (cur <= today) {
+    const ds = toDateStr(cur);
     if (!isWeekendDay(cur)) {
       if (isKuwaitHoliday(cur)) {
         holidayCount++;
+      } else if (leaveDateSet.has(ds)) {
+        leaveDays++;
+        leaveHours += getDailyHours(cur);
       } else {
         rawWorkingDays++;
         rawExpectedHours += getDailyHours(cur);
@@ -98,7 +118,6 @@ function getWorkingDaysInfo(warDaysOff = 0) {
 
   const effectiveWar  = Math.min(Math.max(0, parseInt(warDaysOff) || 0), rawWorkingDays);
   const workingDays   = rawWorkingDays - effectiveWar;
-  // Assume war days were normal 8h days
   const expectedHours = Math.max(0, rawExpectedHours - effectiveWar * NORMAL_DAILY_HOURS);
 
   return {
@@ -107,6 +126,8 @@ function getWorkingDaysInfo(warDaysOff = 0) {
     expectedHours:    Math.round(expectedHours * 10) / 10,
     rawExpectedHours: Math.round(rawExpectedHours * 10) / 10,
     warDaysOff:       effectiveWar,
+    leaveDays,
+    leaveHours:       Math.round(leaveHours * 10) / 10,
     ramadanWorkingDays,
     normalWorkingDays,
     holidayCount,
