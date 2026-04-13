@@ -32,11 +32,14 @@
         <!-- Filter bar -->
         <div class="filter-bar">
           <span class="filter-label">Category:</span>
-          <select class="form-control" id="filterCategory" style="max-width:150px;">
-            <option value="">All</option>
+          <select class="form-control" id="filterCategory" style="max-width:140px;" onchange="onCatFilterChange()">
+            <option value="">All Categories</option>
             <option value="Support">Support</option>
             <option value="Testing">Testing</option>
             <option value="Project">Project</option>
+          </select>
+          <select class="form-control" id="filterSubCategory" style="max-width:180px;">
+            <option value="">All Sub-Categories</option>
           </select>
           <span class="filter-label">Month:</span>
           <select class="form-control" id="filterMonth" style="max-width:150px;">
@@ -167,6 +170,40 @@
   let allLogs = [], allUsers = [], activeUserId = 'all', editingId = null, deletingId = null;
 
   // ── Init ──────────────────────────────────────────────────
+  async function loadAllSubcats() {
+    const [s,t,p] = await Promise.all([
+      db.from('support_subcategories').select('name').order('sort_order'),
+      db.from('testing_subcategories').select('name').order('sort_order'),
+      db.from('project_subcategories').select('name').order('sort_order'),
+    ]);
+    allSubcats = {
+      Support: (s.data||[]).map(r=>r.name),
+      Testing: (t.data||[]).map(r=>r.name),
+      Project: (p.data||[]).map(r=>r.name),
+    };
+  }
+
+  function onCatFilterChange() {
+    const cat = document.getElementById('filterCategory').value;
+    const sel = document.getElementById('filterSubCategory');
+    sel.innerHTML = '<option value="">All Sub-Categories</option>';
+    if (cat && allSubcats[cat]) {
+      allSubcats[cat].forEach(name => {
+        const o = new Option(name, name);
+        sel.appendChild(o);
+      });
+    } else {
+      // Show all subcats
+      ['Support','Testing','Project'].forEach(c => {
+        (allSubcats[c]||[]).forEach(name => {
+          const o = new Option(name + ' (' + c + ')', name);
+          sel.appendChild(o);
+        });
+      });
+    }
+    renderTable();
+  }
+
   async function init() {
     renderSidebar('dashboard');
     loadSidebarStats(session.id);
@@ -176,7 +213,7 @@
       document.getElementById('app-sidebar').classList.toggle('open');
     });
 
-    await Promise.all([loadUsers(), loadLogs()]);
+    await Promise.all([loadUsers(), loadLogs(), loadAllSubcats()]);
     buildUserTabs();
     buildMonthFilter();
     renderLeaderboard();
@@ -238,14 +275,15 @@
   }
 
   function bindFilters() {
-    ['filterCategory','filterMonth','filterSearch'].forEach(id => {
+    ['filterCategory','filterMonth','filterSearch','filterSubCategory'].forEach(id => {
       document.getElementById(id).addEventListener('input', renderTable);
     });
     document.getElementById('clearFilters').addEventListener('click', () => {
-      document.getElementById('filterCategory').value = '';
-      document.getElementById('filterMonth').value = '';
-      document.getElementById('filterSearch').value = '';
-      renderTable();
+      document.getElementById('filterCategory').value    = '';
+      document.getElementById('filterSubCategory').value = '';
+      document.getElementById('filterMonth').value       = '';
+      document.getElementById('filterSearch').value      = '';
+      onCatFilterChange();
     });
   }
 
@@ -273,12 +311,14 @@
   // ── Table render ──────────────────────────────────────────
   function getFilteredLogs() {
     const cat    = document.getElementById('filterCategory').value;
+    const subcat = document.getElementById('filterSubCategory').value;
     const month  = document.getElementById('filterMonth').value;
     const search = document.getElementById('filterSearch').value.toLowerCase().trim();
     return allLogs.filter(l => {
       if (activeUserId !== 'all' && l.user_id !== activeUserId) return false;
-      if (cat   && l.category !== cat) return false;
-      if (month && l.month    !== month) return false;
+      if (cat    && l.category    !== cat)    return false;
+      if (subcat && l.sub_category !== subcat) return false;
+      if (month  && l.month       !== month)  return false;
       if (search) {
         const haystack = [l.task_project, l.task_description, l.accomplishment, l.comments_notes, l.team_member].join(' ').toLowerCase();
         if (!haystack.includes(search)) return false;
