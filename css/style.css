@@ -718,3 +718,152 @@ tbody td { padding: 12px 16px; color: var(--text-1); vertical-align: middle; }
   }
 }
 @media (min-width: 901px) { .menu-toggle { display: none; } }
+
+/* ============================================================
+   Mobile Responsive — v4
+   Breakpoints: 900px (tablet), 600px (phone)
+   ============================================================ */
+
+/* ── Sidebar overlay ───────────────────────────────────────── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 99;
+  backdrop-filter: blur(2px);
+}
+.sidebar-overlay.open { display: block; }
+
+/* ── Mobile base ───────────────────────────────────────────── */
+@media (max-width: 900px) {
+  /* Sidebar: slide-in overlay */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.28s ease;
+    width: 260px;
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .main-content {
+    margin-left: 0;
+    padding: 16px;
+  }
+
+  /* Menu toggle button */
+  .menu-toggle {
+    display: flex;
+    position: fixed;
+    top: 14px; left: 14px;
+    z-index: 150;
+    padding: 9px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-1);
+    font-size: 17px;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  /* Push page header down so it clears the fixed toggle */
+  .page-header { padding-top: 44px; }
+
+  /* Charts: stack to single column */
+  .charts-grid,
+  .charts-grid ~ div[style*="grid-template-columns:1fr 1fr"],
+  div[style*="grid-template-columns:1fr 1.4fr"],
+  div[style*="grid-template-columns:1.7fr 1fr"],
+  div[style*="grid-template-columns:1.6fr 1fr"],
+  div[style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* KPI grid: 2 cols */
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .wt-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Forms */
+  .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
+
+  /* Filter bar: wrap nicely */
+  .filter-bar { gap: 8px; }
+  .filter-bar .form-control { max-width: 100% !important; }
+
+  /* Admin tabs: scroll horizontally */
+  .admin-tabs {
+    overflow-x: auto;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .admin-tabs::-webkit-scrollbar { display: none; }
+
+  /* Page title sizing */
+  .page-title { font-size: 20px; }
+
+  /* Comparison board: single column */
+  div[id="taskBoard"][style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+
+  /* Performance hero: stack on mobile */
+  .perf-hero { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .hero-avatar { width: 60px; height: 60px; font-size: 22px; }
+  .hero-name { font-size: 20px; }
+
+  /* Leaderboard widget */
+  div[style*="grid-template-columns:1fr 280px"] { grid-template-columns: 1fr !important; }
+
+  /* Modal: full-width on small screens */
+  .modal { padding: 20px; }
+
+  /* Priority cards in add task: 2 cols on mobile */
+  .priority-cards { grid-template-columns: repeat(2, 1fr); }
+
+  /* Subcategory cards: wrap freely */
+  .subcat-cards { flex-wrap: wrap; }
+
+  /* Comparison spotlights: 2 cols */
+  div[id="compSpotlights"] { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* User tabs: scroll */
+  .user-tabs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .user-tabs::-webkit-scrollbar { display: none; }
+}
+
+/* ── Phone (600px) ─────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .wt-kpi-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Login box */
+  .login-box { padding: 28px 20px; margin: 16px; }
+
+  /* Table: smaller font */
+  tbody td, thead th { padding: 10px 10px; font-size: 12px; }
+
+  /* Badges grid: 2 cols */
+  .badges-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Spotlights: 1 col */
+  div[id="compSpotlights"] { grid-template-columns: 1fr !important; }
+
+  /* Employee profile cards: 1 col */
+  div[id="compProfiles"] { grid-template-columns: 1fr !important; }
+
+  /* Leaderboard item: tighter */
+  .lb-item { padding: 8px 10px; gap: 8px; }
+
+  /* Action buttons: stack */
+  .action-btns { flex-direction: column; gap: 4px; }
+
+  /* Page header: stack */
+  .page-header { flex-direction: column; align-items: flex-start; }
+  .page-header .btn { align-self: flex-start; }
+
+  /* Hero card */
+  .hero-badges { flex-direction: column; align-items: flex-start; }
+}
