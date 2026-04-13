@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <div class="app-wrapper">
   <button class="menu-toggle" id="menuToggle">☰</button>
   <aside class="sidebar" id="app-sidebar"></aside>
@@ -68,8 +69,7 @@
               <th>Date</th>
               <th>Team Member</th>
               <th>Task / Project</th>
-              <th>Description</th>
-              <th>Category</th>
+              <th>Sub-Category</th>
               <th>Hours</th>
               <th>Accomplishment</th>
               <th>Notes</th>
@@ -77,7 +77,7 @@
             </tr>
           </thead>
           <tbody id="logsBody">
-            <tr><td colspan="9"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr>
+            <tr><td colspan="8"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -118,6 +118,10 @@
           <option value="Testing">Testing</option>
           <option value="Project">Project</option>
         </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sub-Category</label>
+        <input type="text" id="editSubCategory" class="form-control" placeholder="e.g. Hardware Testing" />
       </div>
       <div class="form-group">
         <label class="form-label">Hours Spent<span class="req">*</span></label>
@@ -289,7 +293,7 @@
     document.getElementById('rowCount').textContent = `${logs.length} records`;
 
     if (!logs.length) {
-      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No logs found</div><div class="empty-sub">Try adjusting your filters</div></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No logs found</div><div class="empty-sub">Try adjusting your filters</div></div></td></tr>`;
       return;
     }
 
@@ -305,8 +309,7 @@
         <td class="td-sm">${formatDate(l.log_date)}</td>
         <td><strong>${l.team_member || l.users?.full_name || '—'}</strong></td>
         <td>${truncate(l.task_project, 40)}</td>
-        <td class="td-muted td-sm">${truncate(l.task_description, 50)}</td>
-        <td>${categoryBadge(l.category)}</td>
+        <td>${categoryBadge(l.category)}<span style="font-size:11px;color:var(--text-3);display:block;margin-top:2px;">${l.sub_category||''}</span></td>
         <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
         <td class="td-sm">${truncate(l.accomplishment, 45)}</td>
         <td class="td-muted td-sm">${truncate(l.comments_notes, 40)}</td>
@@ -331,6 +334,7 @@
     document.getElementById('editHours').value    = log.hours_spent;
     document.getElementById('editAccomp').value   = log.accomplishment;
     document.getElementById('editNotes').value    = log.comments_notes;
+    document.getElementById('editSubCategory').value = log.sub_category || '';
     document.getElementById('editModal').classList.add('open');
   }
   function closeEditModal() { document.getElementById('editModal').classList.remove('open'); editingId = null; }
@@ -348,6 +352,7 @@
       task_project:     document.getElementById('editTask').value.trim(),
       task_description: document.getElementById('editDesc').value.trim(),
       category:         document.getElementById('editCategory').value,
+      sub_category:     document.getElementById('editSubCategory').value.trim(),
       hours_spent:      parseFloat(document.getElementById('editHours').value),
       accomplishment:   document.getElementById('editAccomp').value.trim(),
       comments_notes:   document.getElementById('editNotes').value.trim(),
