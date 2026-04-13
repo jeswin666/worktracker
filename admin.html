@@ -136,33 +136,80 @@
 
     <!-- TAB: COMPARISON -->
     <div id="tab-comparison" class="tab-content" style="display:none;">
-      <div class="filter-bar" style="margin-bottom:20px;">
+
+      <!-- Filter bar -->
+      <div class="filter-bar" style="margin-bottom:24px;">
         <span class="filter-label">Period:</span>
         <select class="form-control" id="compPeriod" style="max-width:150px;" onchange="renderComparison()">
           <option value="all">All Time</option>
-          <option value="month">This Month</option>
+          <option value="month">Specific Month</option>
           <option value="week">This Week</option>
         </select>
-        <span class="filter-label">Month:</span>
-        <select class="form-control" id="compMonth" style="max-width:150px;" onchange="renderComparison()">
+        <select class="form-control" id="compMonth" style="max-width:160px;" onchange="renderComparison()">
           <option value="">All Months</option>
         </select>
+        <button class="btn btn-success btn-sm" onclick="exportAllCSV()" style="margin-left:auto;">📤 Export CSV</button>
       </div>
 
-      <div class="card" style="padding:0;margin-bottom:24px;">
-        <div style="padding:14px 20px;border-bottom:1px solid var(--border);">
-          <span class="card-title-lg mb-0">⚖️ Team Comparison</span>
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0;">
-          <table class="comp-table">
+      <!-- Period label -->
+      <div id="compPeriodLabel" style="font-size:13px;color:var(--text-3);margin-bottom:20px;font-weight:500;"></div>
+
+      <!-- ── Section 1: Leaderboard cards ── -->
+      <div style="font-size:13px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">🏆 Leaderboard</div>
+      <div id="compLeaderboard" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:28px;"></div>
+
+      <!-- ── Section 2: Full metrics table ── -->
+      <div style="font-size:13px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">📊 All Metrics</div>
+      <div class="card" style="padding:0;margin-bottom:28px;">
+        <div class="table-wrapper" style="border:none;border-radius:var(--radius-lg);">
+          <table class="comp-table" id="compMetricsTable">
             <thead id="compHead"></thead>
             <tbody id="compBody"></tbody>
           </table>
         </div>
       </div>
 
-      <!-- Mini charts per user -->
-      <div id="compCharts" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;"></div>
+      <!-- ── Section 3: Side-by-side bar charts ── -->
+      <div style="font-size:13px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">📈 Visual Comparison</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;">
+        <div class="card">
+          <div class="card-title">⏱️ Total Hours per Employee</div>
+          <div style="position:relative;height:240px;"><canvas id="compHoursChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📋 Total Tasks per Employee</div>
+          <div style="position:relative;height:240px;"><canvas id="compTasksChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🗓️ Days Active per Employee</div>
+          <div style="position:relative;height:240px;"><canvas id="compDaysChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🎯 Accomplishment Rate (%)</div>
+          <div style="position:relative;height:240px;"><canvas id="compAccompChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ── Section 4: Category breakdown per user ── -->
+      <div style="font-size:13px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">🏷️ Category Breakdown per Employee</div>
+      <div class="card" style="padding:0;margin-bottom:28px;">
+        <div style="position:relative;height:280px;padding:20px;">
+          <canvas id="compCategoryChart"></canvas>
+        </div>
+      </div>
+
+      <!-- ── Section 5: Working time analysis per user ── -->
+      <div style="font-size:13px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">⏱️ Hours Logged vs Expected</div>
+      <div id="compWorkingTime" style="display:flex;flex-direction:column;gap:12px;margin-bottom:28px;"></div>
+
+      <!-- ── Section 6: Weekly activity heatmap (last 10 weeks) ── -->
+      <div style="font-size:13px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">📅 Weekly Hours Trend (Last 10 Weeks)</div>
+      <div class="card" style="padding:0;margin-bottom:28px;">
+        <div style="padding:20px;position:relative;height:300px;">
+          <canvas id="compWeeklyChart"></canvas>
+        </div>
+      </div>
+
     </div>
 
     <!-- TAB: SETTINGS -->
@@ -364,6 +411,7 @@ function switchTab(name) {
   const idx = TAB_ORDER.indexOf(name);
   if (idx >= 0) document.querySelectorAll('.admin-tab')[idx].classList.add('active');
   if (name === 'settings') loadSettingsTab();
+  if (name === 'comparison') renderComparison();
 }
 
 // ── Settings Tab ───────────────────────────────────────────
@@ -638,72 +686,253 @@ function renderRecordsTable() {
 }
 
 // ── Comparison Tab ─────────────────────────────────────────
+let compCharts = {};
+
+function destroyCompCharts() {
+  Object.values(compCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  compCharts = {};
+}
+
 function renderComparison() {
+  destroyCompCharts();
+
   const period = document.getElementById('compPeriod').value;
   const month  = document.getElementById('compMonth').value;
-  let filtered = [...allLogs];
+  const compMonthSel = document.getElementById('compMonth');
+  compMonthSel.style.display = period === 'month' ? 'block' : 'none';
 
-  if (period === 'month' || month) {
-    const m = month || getMonthName(new Date());
+  let filtered = [...allLogs];
+  let periodLabel = 'All Time';
+
+  if (period === 'month' && month) {
+    filtered = filtered.filter(l => l.month === month);
+    periodLabel = month;
+  } else if (period === 'month' && !month) {
+    const m = getMonthName(new Date());
     filtered = filtered.filter(l => l.month === m);
+    periodLabel = m;
   } else if (period === 'week') {
     const wk = getWeekNumber(new Date());
     filtered = filtered.filter(l => l.week_number === wk);
+    periodLabel = `Week ${wk}`;
   }
 
-  const userStats = allUsers.map(u => {
-    const logs  = filtered.filter(l => l.user_id === u.id);
-    const stats = calculateStats(logs);
-    const lvl   = getUserLevel(stats.totalHours);
-    return { user: u, stats, lvl };
-  });
+  document.getElementById('compPeriodLabel').textContent = `Showing data for: ${periodLabel} · ${filtered.length} total task logs`;
 
-  // Build comparison table
-  const metrics = [
-    { key: 'totalHours',       label: 'Total Hours',        fmt: v => v+'h' },
-    { key: 'totalTasks',       label: 'Total Tasks',        fmt: v => v },
-    { key: 'supportHours',     label: 'Support Hours',      fmt: v => v+'h' },
-    { key: 'testingHours',     label: 'Testing Hours',      fmt: v => v+'h' },
-    { key: 'projectHours',     label: 'Project Hours',      fmt: v => v+'h' },
-    { key: 'maxStreak',        label: 'Best Streak',        fmt: v => v+'d' },
-    { key: 'accomplishmentRate',label:'Accomplishment %',   fmt: v => v+'%' },
-    { key: 'uniqueDays',       label: 'Days Active',        fmt: v => v },
-  ];
+  // Load war days for working time analysis
+  db.from('app_settings').select('value').eq('key','war_days_off').maybeSingle().then(({data}) => {
+    const warDays = parseInt(data?.value || '0') || 0;
+    const wt = getWorkingDaysInfo(warDays);
 
-  const head = document.getElementById('compHead');
-  const body = document.getElementById('compBody');
+    const userStats = allUsers.map(u => {
+      const logs  = filtered.filter(l => l.user_id === u.id);
+      const stats = calculateStats(logs);
+      const lvl   = getUserLevel(stats.totalHours);
+      const daysEq= convertHoursToDays(logs);
+      const hoursPct = wt.expectedHours > 0 ? Math.min(Math.round((stats.totalHours / wt.expectedHours) * 100), 999) : 0;
+      const attendPct = wt.workingDays > 0 ? Math.min(Math.round((stats.uniqueDays / wt.workingDays) * 100), 100) : 0;
+      return { user: u, stats, lvl, logs, daysEq, hoursPct, attendPct, wt };
+    });
 
-  head.innerHTML = `<tr><th style="text-align:left;">Metric</th>${allUsers.map(u=>`<th>${u.full_name.split(' ')[0]}</th>`).join('')}</tr>`;
+    // Sort by total hours desc for leaderboard
+    const ranked = [...userStats].sort((a,b) => b.stats.totalHours - a.stats.totalHours);
+    const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+    const colors = ['#f59e0b','#94a3b8','#d97706','#6366f1','#10b981'];
 
-  body.innerHTML = metrics.map(m => {
-    const values = userStats.map(us => us.stats[m.key]);
-    const max    = Math.max(...values);
-    return `<tr>
-      <td style="text-align:left;font-weight:600;font-size:13px;color:var(--text-2);">${m.label}</td>
-      ${values.map((v,i) => `<td class="${v===max && max>0 ? 'comp-winner' : ''}">${m.fmt(v)}</td>`).join('')}
-    </tr>`;
-  }).join('');
-
-  // Mini user cards in comparison
-  document.getElementById('compCharts').innerHTML = userStats.map(({user, stats, lvl}) => `
-    <div class="card card-sm">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-        <div class="user-avatar ${lvl.class}" style="width:36px;height:36px;font-size:12px;border-color:${lvl.color};background:linear-gradient(135deg,${lvl.color}33,${lvl.color}11)">
-          ${user.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2)}
+    // ── 1. Leaderboard cards ──────────────────────────────
+    document.getElementById('compLeaderboard').innerHTML = ranked.map((us, i) => {
+      const initials = us.user.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+      const xp = getXPProgress(us.stats.totalHours);
+      const earnedBadges = getEarnedBadges(us.stats).filter(b=>b.earned).length;
+      return `<div class="card" style="padding:18px;border-color:${i===0?'var(--gold)':'var(--border)'};${i===0?'box-shadow:0 0 20px rgba(245,158,11,0.15)':''}">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <span style="font-size:22px;">${medals[i]||i+1}</span>
+          <div class="user-avatar ${us.lvl.class}" style="width:38px;height:38px;font-size:13px;border-color:${us.lvl.color};background:linear-gradient(135deg,${us.lvl.color}33,${us.lvl.color}11);flex-shrink:0">${initials}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${us.user.full_name}</div>
+            <div style="font-size:11px;color:${us.lvl.color};font-weight:600;">${us.lvl.icon} ${us.lvl.name} · Lv.${us.lvl.level}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:12px;">
+          <div style="padding:7px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3);font-size:10px;">HOURS</div><strong style="font-size:15px;">${us.stats.totalHours}h</strong></div>
+          <div style="padding:7px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3);font-size:10px;">TASKS</div><strong style="font-size:15px;">${us.stats.totalTasks}</strong></div>
+          <div style="padding:7px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3);font-size:10px;">STREAK</div><strong style="font-size:15px;">${us.stats.currentStreak}🔥</strong></div>
+          <div style="padding:7px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3);font-size:10px;">BADGES</div><strong style="font-size:15px;">🏅${earnedBadges}</strong></div>
         </div>
         <div>
-          <div style="font-size:13px;font-weight:700;">${user.full_name}</div>
-          <div style="font-size:11px;color:${lvl.color};">${lvl.icon} ${lvl.name}</div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-3);margin-bottom:4px;"><span>XP Progress</span><span>${xp}%</span></div>
+          <div class="progress-bar"><div class="progress-fill lvl-fill-${us.lvl.level}" style="width:${xp}%"></div></div>
         </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
-        <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3)">Hours</div><strong>${stats.totalHours}h</strong></div>
-        <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3)">Tasks</div><strong>${stats.totalTasks}</strong></div>
-        <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3)">Streak</div><strong>${stats.currentStreak}d 🔥</strong></div>
-        <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;"><div style="color:var(--text-3)">Achieve%</div><strong>${stats.accomplishmentRate}%</strong></div>
-      </div>
-    </div>
-  `).join('');
+      </div>`;
+    }).join('');
+
+    // ── 2. Full metrics table ─────────────────────────────
+    const metrics = [
+      { label: '⏱️ Total Hours Logged',       key: 'totalHours',         fmt: v => `${v}h`,    group: 'hours' },
+      { label: '📅 Days as Hours Equivalent',  key: 'daysEq',             fmt: v => `${v}d`,    group: 'hours', fromRoot: true },
+      { label: '📋 Total Tasks',               key: 'totalTasks',         fmt: v => v,          group: 'tasks' },
+      { label: '🛡️ Support Tasks',            key: 'supportCount',        fmt: v => v,          group: 'tasks' },
+      { label: '🧪 Testing Tasks',             key: 'testingCount',        fmt: v => v,          group: 'tasks' },
+      { label: '🚀 Project Tasks',             key: 'projectCount',        fmt: v => v,          group: 'tasks' },
+      { label: '🛡️ Support Hours',            key: 'supportHours',        fmt: v => `${v}h`,    group: 'hours' },
+      { label: '🧪 Testing Hours',             key: 'testingHours',        fmt: v => `${v}h`,    group: 'hours' },
+      { label: '🚀 Project Hours',             key: 'projectHours',        fmt: v => `${v}h`,    group: 'hours' },
+      { label: '🗓️ Unique Days Active',        key: 'uniqueDays',          fmt: v => `${v}d`,    group: 'attendance' },
+      { label: '📊 Attendance Rate',           key: 'attendPct',           fmt: v => `${v}%`,   group: 'attendance', fromRoot: true },
+      { label: '🎯 Hours Completion',          key: 'hoursPct',            fmt: v => `${v}%`,   group: 'attendance', fromRoot: true },
+      { label: '🔥 Current Streak',            key: 'currentStreak',       fmt: v => `${v}d`,   group: 'streak' },
+      { label: '🏆 Best Streak',               key: 'maxStreak',           fmt: v => `${v}d`,   group: 'streak' },
+      { label: '⚡ Peak Day Hours',            key: 'maxDayHours',         fmt: v => `${v}h`,   group: 'hours' },
+      { label: '✅ Accomplishment Rate',        key: 'accomplishmentRate',   fmt: v => `${v}%`,  group: 'quality' },
+    ];
+
+    const groupColors = { hours:'rgba(99,102,241,0.08)', tasks:'rgba(16,185,129,0.08)', attendance:'rgba(245,158,11,0.08)', streak:'rgba(239,68,68,0.08)', quality:'rgba(139,92,246,0.08)' };
+    const groupBorders = { hours:'rgba(99,102,241,0.3)', tasks:'rgba(16,185,129,0.3)', attendance:'rgba(245,158,11,0.3)', streak:'rgba(239,68,68,0.3)', quality:'rgba(139,92,246,0.3)' };
+
+    const head = document.getElementById('compHead');
+    const body = document.getElementById('compBody');
+    head.innerHTML = `<tr>
+      <th style="text-align:left;min-width:200px;">Metric</th>
+      ${userStats.map(us=>`<th style="text-align:center;min-width:100px;">${us.user.full_name.split(' ')[0]}<br><span style="font-size:10px;color:${us.lvl.color};font-weight:600;">${us.lvl.icon} ${us.lvl.name}</span></th>`).join('')}
+      <th style="text-align:center;min-width:80px;color:var(--gold);">🏆 Leader</th>
+    </tr>`;
+
+    let lastGroup = '';
+    body.innerHTML = metrics.map(m => {
+      const values = userStats.map(us => m.fromRoot ? us[m.key] : us.stats[m.key]);
+      const max = Math.max(...values);
+      const min = Math.min(...values);
+      const leader = userStats[values.indexOf(max)];
+      const groupRow = m.group !== lastGroup ? `<tr style="background:${groupColors[m.group]};border-left:3px solid ${groupBorders[m.group]};"><td colspan="${userStats.length + 2}" style="padding:6px 16px;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;">${{hours:'⏱️ Hours & Time',tasks:'📋 Task Counts',attendance:'📅 Attendance',streak:'🔥 Streaks',quality:'✅ Quality'}[m.group]}</td></tr>` : '';
+      lastGroup = m.group;
+      return groupRow + `<tr>
+        <td style="font-weight:600;font-size:13px;padding:10px 16px;">${m.label}</td>
+        ${values.map((v,i) => {
+          const isMax = v === max && max > 0;
+          const isMin = v === min && min < max && values.length > 1;
+          return `<td style="text-align:center;padding:10px 16px;${isMax?'color:var(--gold);font-weight:800;background:rgba(245,158,11,0.05);':isMin&&!isMax?'color:var(--text-3);':''}">${m.fmt(v)}${isMax?' 👑':''}</td>`;
+        }).join('')}
+        <td style="text-align:center;padding:10px 16px;font-size:12px;font-weight:600;color:var(--gold);">${max > 0 ? leader.user.full_name.split(' ')[0] : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    // ── 3. Bar charts ─────────────────────────────────────
+    const names  = userStats.map(us => us.user.full_name.split(' ')[0]);
+    const bgCols = userStats.map((_, i) => ['rgba(99,102,241,0.8)','rgba(16,185,129,0.8)','rgba(245,158,11,0.8)','rgba(239,68,68,0.8)','rgba(139,92,246,0.8)'][i % 5]);
+    const brCols = userStats.map((_, i) => ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6'][i % 5]);
+    const chartBase = {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color:'#94a3b8', font:{size:11,family:'Inter'} }, grid: { color:'#1e293b' } },
+        y: { ticks: { color:'#94a3b8', font:{size:10} }, grid: { color:'#1e293b' }, beginAtZero: true }
+      }
+    };
+
+    const mkBar = (id, data, label, unit='') => {
+      const ctx = document.getElementById(id);
+      if (!ctx) return;
+      compCharts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: names, datasets: [{ label, data, backgroundColor: bgCols, borderColor: brCols, borderWidth: 2, borderRadius: 6 }] },
+        options: { ...chartBase, plugins: { ...chartBase.plugins, tooltip: { callbacks: { label: ctx => `${ctx.raw}${unit}` } } } }
+      });
+    };
+
+    mkBar('compHoursChart',   userStats.map(us=>us.stats.totalHours),         'Hours',        'h');
+    mkBar('compTasksChart',   userStats.map(us=>us.stats.totalTasks),          'Tasks',        '');
+    mkBar('compDaysChart',    userStats.map(us=>us.stats.uniqueDays),          'Days Active',  'd');
+    mkBar('compAccompChart',  userStats.map(us=>us.stats.accomplishmentRate),  'Accomplish%',  '%');
+
+    // ── 4. Stacked category chart ─────────────────────────
+    const catCtx = document.getElementById('compCategoryChart');
+    if (catCtx) {
+      compCharts.cat = new Chart(catCtx, {
+        type: 'bar',
+        data: {
+          labels: names,
+          datasets: [
+            { label: '🛡️ Support Hours',  data: userStats.map(us=>us.stats.supportHours),  backgroundColor: 'rgba(59,130,246,0.8)',  borderColor: '#3b82f6', borderWidth: 1, borderRadius: 4 },
+            { label: '🧪 Testing Hours',   data: userStats.map(us=>us.stats.testingHours),  backgroundColor: 'rgba(139,92,246,0.8)', borderColor: '#8b5cf6', borderWidth: 1 },
+            { label: '🚀 Project Hours',   data: userStats.map(us=>us.stats.projectHours),  backgroundColor: 'rgba(16,185,129,0.8)', borderColor: '#10b981', borderWidth: 1 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color:'#94a3b8', font:{size:11,family:'Inter'} }, position:'bottom' } },
+          scales: {
+            x: { stacked: true, ticks:{color:'#94a3b8',font:{size:11}}, grid:{color:'#1e293b'} },
+            y: { stacked: true, ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'#1e293b'}, beginAtZero:true }
+          }
+        }
+      });
+    }
+
+    // ── 5. Working time analysis bars ─────────────────────
+    const wtEl = document.getElementById('compWorkingTime');
+    wtEl.innerHTML = userStats.map((us, i) => {
+      const col = brCols[i % 5];
+      const pct = us.hoursPct;
+      const deficit = Math.round((us.wt.expectedHours - us.stats.totalHours) * 10) / 10;
+      return `<div class="card" style="padding:16px 20px;">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <div style="font-weight:700;font-size:14px;min-width:130px;">${us.user.full_name}</div>
+          <div style="flex:1;min-width:200px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);margin-bottom:5px;">
+              <span>${us.stats.totalHours}h logged &nbsp;/&nbsp; ${us.wt.expectedHours}h expected</span>
+              <span style="font-weight:700;color:${pct>=100?'var(--success)':pct>=75?'var(--gold)':'var(--warning)'};">${pct}%</span>
+            </div>
+            <div class="progress-bar" style="height:10px;">
+              <div class="progress-fill" style="width:${Math.min(pct,100)}%;background:${col};"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;font-size:12px;flex-wrap:wrap;">
+            <span style="padding:4px 10px;border-radius:999px;background:var(--bg-surface);border:1px solid var(--border);">🗓️ ${us.stats.uniqueDays}d active / ${us.wt.workingDays}d expected</span>
+            <span style="padding:4px 10px;border-radius:999px;background:var(--bg-surface);border:1px solid var(--border);">📊 ${us.daysEq}d equivalent</span>
+            <span style="padding:4px 10px;border-radius:999px;background:var(--bg-surface);border:1px solid ${deficit<=0?'rgba(16,185,129,0.4)':'rgba(245,158,11,0.4)'};color:${deficit<=0?'var(--success)':'var(--warning)'};">
+              ${deficit > 0 ? '−'+deficit+'h remaining' : '✅ Target met'}
+            </span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // ── 6. Weekly trend multi-line chart ──────────────────
+    const weekCtx = document.getElementById('compWeeklyChart');
+    if (weekCtx) {
+      const weeks = [];
+      for (let i = 9; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i * 7);
+        weeks.push(`W${getWeekNumber(d)}`);
+      }
+      compCharts.weekly = new Chart(weekCtx, {
+        type: 'line',
+        data: {
+          labels: weeks,
+          datasets: userStats.map((us, i) => {
+            const weekData = aggregateByWeek(us.logs, 10);
+            return {
+              label: us.user.full_name.split(' ')[0],
+              data: weekData.map(w => Math.round(w.hours * 10) / 10),
+              borderColor: brCols[i % 5],
+              backgroundColor: bgCols[i % 5].replace('0.8','0.1'),
+              fill: false, tension: 0.4,
+              pointBackgroundColor: brCols[i % 5],
+              pointRadius: 4, borderWidth: 2,
+            };
+          })
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color:'#94a3b8', font:{size:11,family:'Inter'} }, position:'bottom' } },
+          scales: {
+            x: { ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'#1e293b'} },
+            y: { ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'#1e293b'}, beginAtZero:true }
+          }
+        }
+      });
+    }
+  });
 }
 
 // ── Export Tab ─────────────────────────────────────────────
