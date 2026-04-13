@@ -38,6 +38,7 @@
       <button class="admin-tab active" onclick="switchTab('users')">👥 Users</button>
       <button class="admin-tab" onclick="switchTab('records')">📋 Records</button>
       <button class="admin-tab" onclick="switchTab('comparison')">⚖️ Comparison</button>
+      <button class="admin-tab" onclick="switchTab('analysis')">🔬 Employee Analysis</button>
       <button class="admin-tab" onclick="switchTab('export')">📤 Export</button>
       <button class="admin-tab" onclick="switchTab('settings')">⚙️ Settings</button>
     </div>
@@ -212,6 +213,20 @@
         </div>
       </div>
 
+      <!-- ── Donut drill-down ── -->
+      <div id="donutDrillSection" style="display:none;margin-bottom:20px;">
+        <div class="card" style="padding:0;">
+          <div style="padding:12px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+            <span id="donutDrillTitle" class="card-title-lg mb-0"></span>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('donutDrillSection').style.display='none'">✕ Close</button>
+          </div>
+          <div class="table-wrapper" style="border:none;border-radius:0;">
+            <table><thead><tr><th>Date</th><th>Task</th><th>Sub-Category</th><th>Hours</th><th>Accomplishment</th></tr></thead>
+            <tbody id="donutDrillBody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
       <!-- ── SECTION 6: Full metrics table ── -->
       <div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;">📊 Full Metrics Table</div>
       <div class="card" style="padding:0;margin-bottom:28px;">
@@ -241,6 +256,22 @@
       .emp-stat-val { font-size:17px;font-weight:800;line-height:1; }
       .emp-stat-lbl { font-size:10px;color:var(--text-3);font-weight:600;text-transform:uppercase;margin-top:3px; }
     </style>
+
+    <!-- TAB: EMPLOYEE ANALYSIS -->
+    <div id="tab-analysis" class="tab-content" style="display:none;">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Select Employee</div>
+          <select class="form-control" id="analysisUserSel" style="min-width:220px;" onchange="loadEmployeeAnalysis()">
+            <option value="">Choose an employee…</option>
+          </select>
+        </div>
+        <div id="analysisPeriodInfo" style="font-size:12px;color:var(--text-3);"></div>
+      </div>
+      <div id="analysisContent">
+        <div class="empty-state"><div class="empty-icon">🔬</div><div class="empty-text">Select an employee above</div><div class="empty-sub">Their full performance dashboard will appear here</div></div>
+      </div>
+    </div>
 
     <!-- TAB: SETTINGS -->
     <div id="tab-settings" class="tab-content" style="display:none;">
@@ -319,23 +350,54 @@
 
     <!-- TAB: EXPORT -->
     <div id="tab-export" class="tab-content" style="display:none;">
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
-        <div class="card">
-          <div class="card-title-lg">📤 All Records</div>
-          <p style="color:var(--text-2);font-size:13px;margin-bottom:16px;">Export the complete task log including all team members.</p>
-          <button class="btn btn-primary" onclick="exportAllCSV()" style="width:100%;justify-content:center;">⬇️ Download All Logs CSV</button>
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title-lg">🔽 Filter Before Exporting</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:20px;">
+          <div class="form-group mb-0">
+            <label class="form-label">Employee</label>
+            <select class="form-control" id="exportUserSel"><option value="">All Members</option></select>
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label">Category</label>
+            <select class="form-control" id="exportCatSel" onchange="onExportCatChange()">
+              <option value="">All Categories</option>
+              <option value="Support">Support</option>
+              <option value="Testing">Testing</option>
+              <option value="Project">Project</option>
+            </select>
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label">Sub-Category</label>
+            <select class="form-control" id="exportSubcatSel"><option value="">All Sub-Categories</option></select>
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label">Month</label>
+            <select class="form-control" id="exportMonthSel"><option value="">All Months</option></select>
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label">From Date</label>
+            <input type="date" class="form-control" id="exportDateFrom" />
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label">To Date</label>
+            <input type="date" class="form-control" id="exportDateTo" />
+          </div>
         </div>
-        <div class="card">
-          <div class="card-title-lg">👤 By User</div>
-          <p style="color:var(--text-2);font-size:13px;margin-bottom:16px;">Export logs for a specific team member.</p>
-          <select class="form-control" id="exportUserSel" style="margin-bottom:12px;"></select>
-          <button class="btn btn-secondary" onclick="exportSelectedUserCSV()" style="width:100%;justify-content:center;">⬇️ Download User CSV</button>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="exportFiltered()">⬇️ Download Filtered CSV</button>
+          <button class="btn btn-secondary btn-sm" onclick="clearExportFilters()">Clear Filters</button>
+          <span id="exportPreviewCount" style="font-size:12px;color:var(--text-3);"></span>
         </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div class="card">
-          <div class="card-title-lg">📅 By Month</div>
-          <p style="color:var(--text-2);font-size:13px;margin-bottom:16px;">Export logs for a specific month.</p>
-          <select class="form-control" id="exportMonthSel" style="margin-bottom:12px;"></select>
-          <button class="btn btn-secondary" onclick="exportMonthCSV()" style="width:100%;justify-content:center;">⬇️ Download Month CSV</button>
+          <div class="card-title-lg">📤 Quick Export</div>
+          <p style="color:var(--text-2);font-size:13px;margin-bottom:16px;">Download all logs without any filters applied.</p>
+          <button class="btn btn-secondary" onclick="exportAllCSV()" style="width:100%;justify-content:center;">⬇️ All Logs CSV</button>
+        </div>
+        <div id="exportPreviewCard" class="card" style="display:none;">
+          <div class="card-title-lg">👁️ Preview</div>
+          <div id="exportPreviewTable"></div>
         </div>
       </div>
     </div>
@@ -474,82 +536,136 @@ async function loadAllLogs() {
 }
 
 // ── Tab switching ──────────────────────────────────────────
-const TAB_ORDER = ['users','records','comparison','export','settings'];
+const TAB_ORDER = ['users','records','comparison','analysis','export','settings'];
 function switchTab(name) {
   document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
   document.getElementById(`tab-${name}`).style.display = 'block';
   const idx = TAB_ORDER.indexOf(name);
   if (idx >= 0) document.querySelectorAll('.admin-tab')[idx].classList.add('active');
-  if (name === 'settings') loadSettingsTab();
+  if (name === 'settings')  loadSettingsTab();
   if (name === 'comparison') renderComparison();
+  if (name === 'analysis')   initAnalysisTab();
+  if (name === 'export')     initExportTab();
 }
 
 // ── Settings Tab ───────────────────────────────────────────
 async function loadSettingsTab() {
-  // Load current war days
   const { data } = await db.from('app_settings').select('value,updated_at').eq('key','war_days_off').maybeSingle();
   const current = parseInt(data?.value || '0') || 0;
   document.getElementById('warDaysInput').value = current;
-
   const curEl = document.getElementById('warDaysCurrent');
   if (current === 0) {
-    curEl.innerHTML = `<span style="color:var(--success)">✅ Currently: <strong>0 war days</strong> — no deduction applied to the team</span>`;
+    curEl.innerHTML = `<span style="color:var(--success)">✅ Currently: <strong>0 war days</strong> — no deduction applied</span>`;
   } else {
     const updated = data?.updated_at ? `(last updated ${formatDate(data.updated_at)})` : '';
-    curEl.innerHTML = `<span style="color:var(--warning)">⚠️ Currently: <strong>${current} war day${current!==1?'s':''} off</strong> deducted from all team members' working day count ${updated}</span>`;
+    curEl.innerHTML = `<span style="color:var(--warning)">⚠️ Currently: <strong>${current} war day${current!==1?'s':''} off</strong> ${updated}</span>`;
   }
-
-  // Render holiday list
   const listEl = document.getElementById('holidayList');
   if (listEl) {
     listEl.innerHTML = KUWAIT_HOLIDAYS_2026.map(d => {
       const dow = new Date(d).toLocaleDateString('en-GB', { weekday: 'long' });
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);">
-        <span style="font-size:13px;font-weight:600;">📅 ${KUWAIT_HOLIDAY_LABELS[d] || 'Holiday'}</span>
+        <span style="font-size:13px;font-weight:600;">📅 ${KUWAIT_HOLIDAY_LABELS[d]||'Holiday'}</span>
         <span style="font-size:12px;color:var(--text-3);">${dow}, ${formatDate(d)}</span>
       </div>`;
     }).join('');
   }
-  // Load project sub-categories
-  loadProjectSubcatList();
+  loadSubcatList('support');
+  loadSubcatList('testing');
+  loadSubcatList('project');
+  populateLeaveUserSelect();
+  loadLeaveList();
 }
 
-// ── Project Sub-category Management ────────────────────────
-async function loadProjectSubcatList() {
-  const el = document.getElementById('projectSubcatList');
+// ── Generic Sub-category Management ────────────────────────
+const SUBCAT_TABLES = { support:'support_subcategories', testing:'testing_subcategories', project:'project_subcategories' };
+const SUBCAT_ICONS  = { support:'🛡️', testing:'🧪', project:'🚀' };
+
+async function loadSubcatList(cat) {
+  const el = document.getElementById(cat + 'SubcatList');
   if (!el) return;
-  const { data } = await db.from('project_subcategories').select('id, name').order('sort_order').order('name');
-  if (!data || !data.length) {
-    el.innerHTML = `<div style="font-size:13px;color:var(--text-3);padding:12px;">No project sub-categories yet. Add one above.</div>`;
-    return;
-  }
+  const { data } = await db.from(SUBCAT_TABLES[cat]).select('id,name').order('sort_order').order('name');
+  if (!data || !data.length) { el.innerHTML = `<div style="font-size:12px;color:var(--text-3);">None yet.</div>`; return; }
   el.innerHTML = data.map(s => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);">
-      <span style="font-size:13px;font-weight:600;">🚀 ${s.name}</span>
-      <button class="btn btn-danger btn-sm" onclick="deleteProjectSubcat('${s.id}','${s.name.replace(/'/g,"\'")}')">🗑️ Remove</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);">
+      <span style="font-size:13px;font-weight:600;">${SUBCAT_ICONS[cat]} ${s.name}</span>
+      <button class="btn btn-danger btn-sm" onclick="deleteSubcat('${cat}','${s.id}','${s.name.replace(/'/g,"\'")}')">🗑️</button>
     </div>`).join('');
 }
 
-async function addProjectSubcat() {
-  const input = document.getElementById('newSubcatInput');
-  const name  = input.value.trim();
-  if (!name) { showToast('Enter a sub-category name', 'warning'); return; }
-  const { error } = await db.from('project_subcategories').insert({ name });
-  if (error) {
-    showToast(error.code === '23505' ? 'That sub-category already exists' : error.message, 'error');
-  } else {
-    showToast(`"${name}" added!`, 'success');
-    input.value = '';
-    loadProjectSubcatList();
+async function addSubcat(cat) {
+  const input = document.getElementById('new' + cat.charAt(0).toUpperCase() + cat.slice(1) + 'Subcat');
+  const name  = input?.value.trim();
+  if (!name) { showToast('Enter a name', 'warning'); return; }
+  const { error } = await db.from(SUBCAT_TABLES[cat]).insert({ name });
+  if (error) showToast(error.code === '23505' ? 'Already exists' : error.message, 'error');
+  else { showToast(`"${name}" added!`, 'success'); input.value = ''; loadSubcatList(cat); }
+}
+
+async function deleteSubcat(cat, id, name) {
+  if (!confirm(`Remove "${name}"?`)) return;
+  const { error } = await db.from(SUBCAT_TABLES[cat]).delete().eq('id', id);
+  if (error) showToast('Failed: ' + error.message, 'error');
+  else { showToast(`"${name}" removed`, 'success'); loadSubcatList(cat); }
+}
+
+// ── Employee Leave Management ───────────────────────────────
+async function populateLeaveUserSelect() {
+  const sel = document.getElementById('leaveUserSel');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select employee…</option>';
+  allUsers.forEach(u => sel.appendChild(new Option(u.full_name, u.id)));
+}
+
+async function loadLeaveList() {
+  const el = document.getElementById('leaveList');
+  if (!el) return;
+  const { data } = await db.from('employee_leaves').select('*, users(full_name)').order('start_date', { ascending: false });
+  if (!data || !data.length) { el.innerHTML = `<div style="font-size:13px;color:var(--text-3);">No leave entries yet.</div>`; return; }
+  // Group by user
+  const byUser = {};
+  data.forEach(l => {
+    const n = l.users?.full_name || l.user_id;
+    if (!byUser[n]) byUser[n] = [];
+    byUser[n].push(l);
+  });
+  el.innerHTML = Object.entries(byUser).map(([name, leaves]) => `
+    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px;">👤 ${name}</div>
+      ${leaves.map(lv => `
+        <div style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">
+          <span>📅 ${formatDate(lv.start_date)} → ${formatDate(lv.end_date)}</span>
+          ${lv.reason ? `<span style="color:var(--text-3);">${lv.reason}</span>` : ''}
+          <button class="btn btn-danger btn-sm" style="margin-left:auto;" onclick="deleteLeave('${lv.id}')">🗑️</button>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+async function addLeave() {
+  const uid    = document.getElementById('leaveUserSel').value;
+  const start  = document.getElementById('leaveStart').value;
+  const end    = document.getElementById('leaveEnd').value;
+  const reason = document.getElementById('leaveReason').value.trim();
+  if (!uid || !start || !end) { showToast('Select employee and both dates', 'warning'); return; }
+  if (end < start)             { showToast('End date must be after start date', 'warning'); return; }
+  const { error } = await db.from('employee_leaves').insert({ user_id: uid, start_date: start, end_date: end, reason });
+  if (error) showToast('Failed: ' + error.message, 'error');
+  else {
+    showToast('Leave added!', 'success');
+    document.getElementById('leaveUserSel').value = '';
+    document.getElementById('leaveStart').value   = '';
+    document.getElementById('leaveEnd').value     = '';
+    document.getElementById('leaveReason').value  = '';
+    loadLeaveList();
   }
 }
 
-async function deleteProjectSubcat(id, name) {
-  if (!confirm(`Remove "${name}"? This won't affect existing logs.`)) return;
-  const { error } = await db.from('project_subcategories').delete().eq('id', id);
+async function deleteLeave(id) {
+  if (!confirm('Remove this leave entry?')) return;
+  const { error } = await db.from('employee_leaves').delete().eq('id', id);
   if (error) showToast('Failed: ' + error.message, 'error');
-  else { showToast(`"${name}" removed`, 'success'); loadProjectSubcatList(); }
+  else { showToast('Leave removed', 'success'); loadLeaveList(); }
 }
 
 async function saveWarDays() {
@@ -639,11 +755,481 @@ function openDeleteUserModal(uid, name) {
   document.getElementById('deleteUserLogCount').textContent = logs > 0
     ? `⚠️ This will also permanently delete their ${logs} task log${logs!==1?'s':''}.`
     : 'This user has no task logs.';
-  document.getElementById('deleteUserModal').classList.add('open');
+  // ── Employee Analysis Tab ──────────────────────────────────
+async function initAnalysisTab() {
+  const sel = document.getElementById('analysisUserSel');
+  if (!sel) return;
+  if (sel.options.length <= 1) {
+    sel.innerHTML = '<option value="">Choose an employee…</option>';
+    allUsers.forEach(u => sel.appendChild(new Option(u.full_name, u.id)));
+  }
+}
+
+async function loadEmployeeAnalysis() {
+  const uid = document.getElementById('analysisUserSel').value;
+  const container = document.getElementById('analysisContent');
+  if (!uid) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🔬</div><div class="empty-text">Select an employee above</div></div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="loading" style="margin:40px auto;flex-direction:column;gap:12px;"><div class="spinner" style="width:32px;height:32px;border-width:3px;"></div><span style="color:var(--text-3)">Loading analysis…</span></div>`;
+
+  const user = allUsers.find(u => u.id === uid);
+  const [logsRes, leavesRes, warRes] = await Promise.all([
+    db.from('task_logs').select('*').eq('user_id', uid).order('log_date', { ascending: true }),
+    db.from('employee_leaves').select('start_date,end_date').eq('user_id', uid),
+    db.from('app_settings').select('value').eq('key','war_days_off').maybeSingle(),
+  ]);
+
+  const logs      = logsRes.data || [];
+  const leaves    = leavesRes.data || [];
+  const warDays   = parseInt(warRes.data?.value || '0') || 0;
+  const wt        = getWorkingDaysInfo(warDays, leaves);
+  const stats     = calculateStats(logs);
+  const level     = getUserLevel(stats.totalHours);
+  const xp        = getXPProgress(stats.totalHours);
+  const badges    = getEarnedBadges(stats);
+  const earnedCount = badges.filter(b=>b.earned).length;
+  const initials  = user.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+  const daysEq    = convertHoursToDays(logs);
+  const hoursPct  = wt.expectedHours > 0 ? Math.min(Math.round((stats.totalHours/wt.expectedHours)*100),999) : 0;
+  const attendPct = wt.workingDays > 0 ? Math.min(Math.round((stats.uniqueDays/wt.workingDays)*100),100) : 0;
+
+  // Team averages
+  const teamStats = allUsers.map(u => {
+    const ul = allLogs.filter(l => l.user_id === u.id);
+    return calculateStats(ul);
+  });
+  const avg = (key) => teamStats.length ? Math.round((teamStats.reduce((s,ts)=>s+ts[key],0)/teamStats.length)*10)/10 : 0;
+
+  const weekData = aggregateByWeek(logs, 10);
+  const thisMonth = getMonthName(new Date());
+  const monthLogs = logs.filter(l => l.month === thisMonth);
+
+  document.getElementById('analysisPeriodInfo').textContent =
+    `${wt.periodLabel} · ${wt.workingDays} working days · ${wt.leaveDays} leave days`;
+
+  container.innerHTML = `
+    <!-- Hero -->
+    <div class="perf-hero" style="margin-bottom:20px;">
+      <div class="hero-avatar ${level.class}" style="border-color:${level.color};background:linear-gradient(135deg,${level.color}33,${level.color}11);">${initials}</div>
+      <div class="hero-info">
+        <div class="hero-name">${user.full_name}</div>
+        <div class="hero-meta">@${user.username} · ${level.icon} ${level.name} · Lv.${level.level} · 🏅 ${earnedCount}/${badges.length} badges</div>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:12px;flex-wrap:wrap;">
+          <div class="level-badge ${level.class}" style="font-size:12px;padding:5px 12px;">${level.icon} ${level.name}</div>
+          <div style="flex:1;max-width:200px;">
+            <div style="font-size:10px;color:var(--text-3);margin-bottom:3px;">XP Progress: ${xp}%</div>
+            <div class="progress-bar"><div class="progress-fill lvl-fill-${level.level}" style="width:${xp}%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Working time banner -->
+    <div style="background:linear-gradient(135deg,#0d1f3c,#162040);border:1px solid #1e3a5f;border-radius:var(--radius-lg);padding:14px 20px;margin-bottom:20px;font-size:13px;color:var(--text-2);">
+      📅 <strong style="color:var(--text-1)">${wt.periodLabel}</strong> &nbsp;·&nbsp;
+      ${wt.workingDays} working days &nbsp;·&nbsp;
+      ${wt.leaveDays} leave days excluded &nbsp;·&nbsp;
+      ${wt.holidayCount} public holidays &nbsp;·&nbsp;
+      Expected: <strong style="color:var(--text-1)">${wt.expectedHours}h</strong>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="kpi-grid" style="margin-bottom:20px;">
+      <div class="kpi-card accent-purple"><span class="kpi-icon">⏱️</span><div class="kpi-label">Total Hours</div><div class="kpi-value">${stats.totalHours}h</div><div class="kpi-sub">Expected: ${wt.expectedHours}h</div></div>
+      <div class="kpi-card accent-gold"><span class="kpi-icon">📋</span><div class="kpi-label">Total Tasks</div><div class="kpi-value">${stats.totalTasks}</div><div class="kpi-sub">${thisMonth}: ${monthLogs.length}</div></div>
+      <div class="kpi-card accent-teal"><span class="kpi-icon">🔥</span><div class="kpi-label">Current Streak</div><div class="kpi-value">${stats.currentStreak}d</div><div class="kpi-sub">Best: ${stats.maxStreak}d</div></div>
+      <div class="kpi-card accent-blue"><span class="kpi-icon">📅</span><div class="kpi-label">Days Active</div><div class="kpi-value">${stats.uniqueDays}</div><div class="kpi-sub">of ${wt.workingDays} working days</div></div>
+      <div class="kpi-card accent-green"><span class="kpi-icon">🎯</span><div class="kpi-label">Hours Completion</div><div class="kpi-value">${hoursPct}%</div><div class="kpi-sub">${stats.totalHours}h / ${wt.expectedHours}h</div></div>
+      <div class="kpi-card accent-red"><span class="kpi-icon">⚡</span><div class="kpi-label">Peak Day</div><div class="kpi-value">${stats.maxDayHours}h</div><div class="kpi-sub">${daysEq}d equivalent</div></div>
+    </div>
+
+    <!-- Team comparison bars -->
+    <div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;">📊 vs Team Average</div>
+    <div class="card" style="margin-bottom:20px;padding:20px;">
+      ${[
+        { label:'Total Hours',     val:stats.totalHours,         avg:avg('totalHours'),         unit:'h', color:'#6366f1' },
+        { label:'Total Tasks',     val:stats.totalTasks,         avg:avg('totalTasks'),          unit:'',  color:'#10b981' },
+        { label:'Days Active',     val:stats.uniqueDays,         avg:avg('uniqueDays'),          unit:'d', color:'#f59e0b' },
+        { label:'Best Streak',     val:stats.maxStreak,          avg:avg('maxStreak'),           unit:'d', color:'#ef4444' },
+        { label:'Achievements',    val:stats.accomplishmentCount,avg:avg('accomplishmentCount'), unit:'',  color:'#8b5cf6' },
+        { label:'Support Hours',   val:stats.supportHours,       avg:avg('supportHours'),        unit:'h', color:'#3b82f6' },
+        { label:'Testing Hours',   val:stats.testingHours,       avg:avg('testingHours'),        unit:'h', color:'#8b5cf6' },
+        { label:'Project Hours',   val:stats.projectHours,       avg:avg('projectHours'),        unit:'h', color:'#10b981' },
+      ].map(m => {
+        const maxV  = Math.max(m.val, m.avg, 1);
+        const empPct = Math.round(m.val/maxV*100);
+        const avgPct = Math.round(m.avg/maxV*100);
+        const better = m.val >= m.avg;
+        return `<div style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+            <span style="font-weight:600;">${m.label}</span>
+            <span><span style="color:${m.color};font-weight:700;">${m.val}${m.unit}</span> <span style="color:var(--text-3);">vs avg ${m.avg}${m.unit}</span> <span style="color:${better?'var(--success)':'var(--warning)'};">${better?'▲':'▼'}</span></span>
+          </div>
+          <div style="position:relative;height:8px;background:var(--border);border-radius:999px;overflow:visible;margin-bottom:2px;">
+            <div style="height:100%;width:${empPct}%;background:${m.color};border-radius:999px;transition:width .8s;"></div>
+          </div>
+          <div style="position:relative;height:4px;background:var(--border);border-radius:999px;overflow:visible;">
+            <div style="height:100%;width:${avgPct}%;background:var(--text-3);border-radius:999px;opacity:.5;"></div>
+          </div>
+          <div style="display:flex;gap:12px;font-size:10px;color:var(--text-3);margin-top:2px;">
+            <span style="color:${m.color};">■ This employee</span><span>■ Team average</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid" style="margin-bottom:20px;">
+      <div class="chart-card"><div class="card-title">📈 Weekly Hours</div><div class="chart-container"><canvas id="analysisWeeklyChart"></canvas></div></div>
+      <div class="chart-card"><div class="card-title">🍩 Category Split</div><div class="chart-container"><canvas id="analysisCatChart"></canvas></div></div>
+    </div>
+
+    <!-- Badges -->
+    <div class="card">
+      <div class="card-title-lg">🏅 Badges (${earnedCount}/${badges.length})</div>
+      <div class="badges-grid">
+        ${badges.map(b=>`<div class="badge-card ${b.earned?'earned':'locked'}"><span class="badge-emoji">${b.icon}</span><span class="badge-name">${b.name}</span><span class="badge-desc">${b.desc}</span>${b.earned?'<span style="font-size:10px;color:var(--gold);font-weight:700;">EARNED ✨</span>':''}</div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  // Charts
+  requestAnimationFrame(() => {
+    const base = { responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}},
+      scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e293b'}},y:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e293b'},beginAtZero:true}} };
+
+    const wCtx = document.getElementById('analysisWeeklyChart');
+    if (wCtx) new Chart(wCtx,{type:'line',data:{labels:weekData.map(w=>w.label),datasets:[{label:'Hours',data:weekData.map(w=>Math.round(w.hours*10)/10),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',fill:true,tension:.4,pointBackgroundColor:'#6366f1',pointRadius:4,borderWidth:2}]},options:base});
+
+    const cCtx = document.getElementById('analysisCatChart');
+    if (cCtx && stats.totalTasks>0) new Chart(cCtx,{type:'doughnut',data:{labels:['Support','Testing','Project'],datasets:[{data:[stats.supportCount,stats.testingCount,stats.projectCount],backgroundColor:['rgba(59,130,246,.8)','rgba(139,92,246,.8)','rgba(16,185,129,.8)'],borderColor:['#3b82f6','#8b5cf6','#10b981'],borderWidth:2,hoverOffset:6}]},options:{...base,cutout:'65%',scales:{},plugins:{...base.plugins,legend:{...base.plugins.legend,position:'bottom'}}}});
+  });
+}
+
+// ── Export Tab ──────────────────────────────────────────────
+let exportSubcats = {};
+
+async function initExportTab() {
+  // Load subcats for filter
+  const [s,t,p] = await Promise.all([
+    db.from('support_subcategories').select('name').order('sort_order'),
+    db.from('testing_subcategories').select('name').order('sort_order'),
+    db.from('project_subcategories').select('name').order('sort_order'),
+  ]);
+  exportSubcats = {
+    Support: (s.data||[]).map(r=>r.name),
+    Testing: (t.data||[]).map(r=>r.name),
+    Project: (p.data||[]).map(r=>r.name),
+  };
+  updateExportCount();
+}
+
+function onExportCatChange() {
+  const cat = document.getElementById('exportCatSel').value;
+  const sel = document.getElementById('exportSubcatSel');
+  sel.innerHTML = '<option value="">All Sub-Categories</option>';
+  (exportSubcats[cat]||[]).forEach(n => sel.appendChild(new Option(n,n)));
+  updateExportCount();
+}
+
+function getExportFiltered() {
+  const uid    = document.getElementById('exportUserSel').value;
+  const cat    = document.getElementById('exportCatSel').value;
+  const subcat = document.getElementById('exportSubcatSel').value;
+  const month  = document.getElementById('exportMonthSel').value;
+  const from   = document.getElementById('exportDateFrom').value;
+  const to     = document.getElementById('exportDateTo').value;
+  return allLogs.filter(l => {
+    if (uid    && l.user_id      !== uid)    return false;
+    if (cat    && l.category     !== cat)    return false;
+    if (subcat && l.sub_category !== subcat) return false;
+    if (month  && l.month        !== month)  return false;
+    if (from   && l.log_date     < from)     return false;
+    if (to     && l.log_date     > to)       return false;
+    return true;
+  });
+}
+
+function updateExportCount() {
+  const f = getExportFiltered();
+  const el = document.getElementById('exportPreviewCount');
+  if (el) el.textContent = `${f.length} records match current filters`;
+}
+
+['exportUserSel','exportCatSel','exportSubcatSel','exportMonthSel','exportDateFrom','exportDateTo'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', updateExportCount);
+});
+
+function clearExportFilters() {
+  ['exportUserSel','exportCatSel','exportSubcatSel','exportMonthSel'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['exportDateFrom','exportDateTo'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('exportSubcatSel').innerHTML = '<option value="">All Sub-Categories</option>';
+  updateExportCount();
+}
+
+function exportFiltered() {
+  const data = getExportFiltered().map(mapLogForExport);
+  if (!data.length) { showToast('No records match your filters', 'warning'); return; }
+  const parts = [];
+  const uid = document.getElementById('exportUserSel').value;
+  if (uid) { const u = allUsers.find(x=>x.id===uid); if (u) parts.push(u.username); }
+  const cat = document.getElementById('exportCatSel').value; if (cat) parts.push(cat.toLowerCase());
+  const month = document.getElementById('exportMonthSel').value; if (month) parts.push(month.toLowerCase());
+  const fname = `worktracker_${parts.join('_')||'filtered'}_${new Date().toISOString().slice(0,10)}.csv`;
+  exportToCSV(data, fname);
+  showToast(`Exported ${data.length} records`, 'success');
+}
+
+// ── Task share donut click ──────────────────────────────────
+document.getElementById('deleteUserModal').classList.add('open');
 }
 
 function closeDeleteUserModal() {
-  document.getElementById('deleteUserModal').classList.remove('open');
+  // ── Employee Analysis Tab ──────────────────────────────────
+async function initAnalysisTab() {
+  const sel = document.getElementById('analysisUserSel');
+  if (!sel) return;
+  if (sel.options.length <= 1) {
+    sel.innerHTML = '<option value="">Choose an employee…</option>';
+    allUsers.forEach(u => sel.appendChild(new Option(u.full_name, u.id)));
+  }
+}
+
+async function loadEmployeeAnalysis() {
+  const uid = document.getElementById('analysisUserSel').value;
+  const container = document.getElementById('analysisContent');
+  if (!uid) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🔬</div><div class="empty-text">Select an employee above</div></div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="loading" style="margin:40px auto;flex-direction:column;gap:12px;"><div class="spinner" style="width:32px;height:32px;border-width:3px;"></div><span style="color:var(--text-3)">Loading analysis…</span></div>`;
+
+  const user = allUsers.find(u => u.id === uid);
+  const [logsRes, leavesRes, warRes] = await Promise.all([
+    db.from('task_logs').select('*').eq('user_id', uid).order('log_date', { ascending: true }),
+    db.from('employee_leaves').select('start_date,end_date').eq('user_id', uid),
+    db.from('app_settings').select('value').eq('key','war_days_off').maybeSingle(),
+  ]);
+
+  const logs      = logsRes.data || [];
+  const leaves    = leavesRes.data || [];
+  const warDays   = parseInt(warRes.data?.value || '0') || 0;
+  const wt        = getWorkingDaysInfo(warDays, leaves);
+  const stats     = calculateStats(logs);
+  const level     = getUserLevel(stats.totalHours);
+  const xp        = getXPProgress(stats.totalHours);
+  const badges    = getEarnedBadges(stats);
+  const earnedCount = badges.filter(b=>b.earned).length;
+  const initials  = user.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+  const daysEq    = convertHoursToDays(logs);
+  const hoursPct  = wt.expectedHours > 0 ? Math.min(Math.round((stats.totalHours/wt.expectedHours)*100),999) : 0;
+  const attendPct = wt.workingDays > 0 ? Math.min(Math.round((stats.uniqueDays/wt.workingDays)*100),100) : 0;
+
+  // Team averages
+  const teamStats = allUsers.map(u => {
+    const ul = allLogs.filter(l => l.user_id === u.id);
+    return calculateStats(ul);
+  });
+  const avg = (key) => teamStats.length ? Math.round((teamStats.reduce((s,ts)=>s+ts[key],0)/teamStats.length)*10)/10 : 0;
+
+  const weekData = aggregateByWeek(logs, 10);
+  const thisMonth = getMonthName(new Date());
+  const monthLogs = logs.filter(l => l.month === thisMonth);
+
+  document.getElementById('analysisPeriodInfo').textContent =
+    `${wt.periodLabel} · ${wt.workingDays} working days · ${wt.leaveDays} leave days`;
+
+  container.innerHTML = `
+    <!-- Hero -->
+    <div class="perf-hero" style="margin-bottom:20px;">
+      <div class="hero-avatar ${level.class}" style="border-color:${level.color};background:linear-gradient(135deg,${level.color}33,${level.color}11);">${initials}</div>
+      <div class="hero-info">
+        <div class="hero-name">${user.full_name}</div>
+        <div class="hero-meta">@${user.username} · ${level.icon} ${level.name} · Lv.${level.level} · 🏅 ${earnedCount}/${badges.length} badges</div>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:12px;flex-wrap:wrap;">
+          <div class="level-badge ${level.class}" style="font-size:12px;padding:5px 12px;">${level.icon} ${level.name}</div>
+          <div style="flex:1;max-width:200px;">
+            <div style="font-size:10px;color:var(--text-3);margin-bottom:3px;">XP Progress: ${xp}%</div>
+            <div class="progress-bar"><div class="progress-fill lvl-fill-${level.level}" style="width:${xp}%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Working time banner -->
+    <div style="background:linear-gradient(135deg,#0d1f3c,#162040);border:1px solid #1e3a5f;border-radius:var(--radius-lg);padding:14px 20px;margin-bottom:20px;font-size:13px;color:var(--text-2);">
+      📅 <strong style="color:var(--text-1)">${wt.periodLabel}</strong> &nbsp;·&nbsp;
+      ${wt.workingDays} working days &nbsp;·&nbsp;
+      ${wt.leaveDays} leave days excluded &nbsp;·&nbsp;
+      ${wt.holidayCount} public holidays &nbsp;·&nbsp;
+      Expected: <strong style="color:var(--text-1)">${wt.expectedHours}h</strong>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="kpi-grid" style="margin-bottom:20px;">
+      <div class="kpi-card accent-purple"><span class="kpi-icon">⏱️</span><div class="kpi-label">Total Hours</div><div class="kpi-value">${stats.totalHours}h</div><div class="kpi-sub">Expected: ${wt.expectedHours}h</div></div>
+      <div class="kpi-card accent-gold"><span class="kpi-icon">📋</span><div class="kpi-label">Total Tasks</div><div class="kpi-value">${stats.totalTasks}</div><div class="kpi-sub">${thisMonth}: ${monthLogs.length}</div></div>
+      <div class="kpi-card accent-teal"><span class="kpi-icon">🔥</span><div class="kpi-label">Current Streak</div><div class="kpi-value">${stats.currentStreak}d</div><div class="kpi-sub">Best: ${stats.maxStreak}d</div></div>
+      <div class="kpi-card accent-blue"><span class="kpi-icon">📅</span><div class="kpi-label">Days Active</div><div class="kpi-value">${stats.uniqueDays}</div><div class="kpi-sub">of ${wt.workingDays} working days</div></div>
+      <div class="kpi-card accent-green"><span class="kpi-icon">🎯</span><div class="kpi-label">Hours Completion</div><div class="kpi-value">${hoursPct}%</div><div class="kpi-sub">${stats.totalHours}h / ${wt.expectedHours}h</div></div>
+      <div class="kpi-card accent-red"><span class="kpi-icon">⚡</span><div class="kpi-label">Peak Day</div><div class="kpi-value">${stats.maxDayHours}h</div><div class="kpi-sub">${daysEq}d equivalent</div></div>
+    </div>
+
+    <!-- Team comparison bars -->
+    <div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;">📊 vs Team Average</div>
+    <div class="card" style="margin-bottom:20px;padding:20px;">
+      ${[
+        { label:'Total Hours',     val:stats.totalHours,         avg:avg('totalHours'),         unit:'h', color:'#6366f1' },
+        { label:'Total Tasks',     val:stats.totalTasks,         avg:avg('totalTasks'),          unit:'',  color:'#10b981' },
+        { label:'Days Active',     val:stats.uniqueDays,         avg:avg('uniqueDays'),          unit:'d', color:'#f59e0b' },
+        { label:'Best Streak',     val:stats.maxStreak,          avg:avg('maxStreak'),           unit:'d', color:'#ef4444' },
+        { label:'Achievements',    val:stats.accomplishmentCount,avg:avg('accomplishmentCount'), unit:'',  color:'#8b5cf6' },
+        { label:'Support Hours',   val:stats.supportHours,       avg:avg('supportHours'),        unit:'h', color:'#3b82f6' },
+        { label:'Testing Hours',   val:stats.testingHours,       avg:avg('testingHours'),        unit:'h', color:'#8b5cf6' },
+        { label:'Project Hours',   val:stats.projectHours,       avg:avg('projectHours'),        unit:'h', color:'#10b981' },
+      ].map(m => {
+        const maxV  = Math.max(m.val, m.avg, 1);
+        const empPct = Math.round(m.val/maxV*100);
+        const avgPct = Math.round(m.avg/maxV*100);
+        const better = m.val >= m.avg;
+        return `<div style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+            <span style="font-weight:600;">${m.label}</span>
+            <span><span style="color:${m.color};font-weight:700;">${m.val}${m.unit}</span> <span style="color:var(--text-3);">vs avg ${m.avg}${m.unit}</span> <span style="color:${better?'var(--success)':'var(--warning)'};">${better?'▲':'▼'}</span></span>
+          </div>
+          <div style="position:relative;height:8px;background:var(--border);border-radius:999px;overflow:visible;margin-bottom:2px;">
+            <div style="height:100%;width:${empPct}%;background:${m.color};border-radius:999px;transition:width .8s;"></div>
+          </div>
+          <div style="position:relative;height:4px;background:var(--border);border-radius:999px;overflow:visible;">
+            <div style="height:100%;width:${avgPct}%;background:var(--text-3);border-radius:999px;opacity:.5;"></div>
+          </div>
+          <div style="display:flex;gap:12px;font-size:10px;color:var(--text-3);margin-top:2px;">
+            <span style="color:${m.color};">■ This employee</span><span>■ Team average</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid" style="margin-bottom:20px;">
+      <div class="chart-card"><div class="card-title">📈 Weekly Hours</div><div class="chart-container"><canvas id="analysisWeeklyChart"></canvas></div></div>
+      <div class="chart-card"><div class="card-title">🍩 Category Split</div><div class="chart-container"><canvas id="analysisCatChart"></canvas></div></div>
+    </div>
+
+    <!-- Badges -->
+    <div class="card">
+      <div class="card-title-lg">🏅 Badges (${earnedCount}/${badges.length})</div>
+      <div class="badges-grid">
+        ${badges.map(b=>`<div class="badge-card ${b.earned?'earned':'locked'}"><span class="badge-emoji">${b.icon}</span><span class="badge-name">${b.name}</span><span class="badge-desc">${b.desc}</span>${b.earned?'<span style="font-size:10px;color:var(--gold);font-weight:700;">EARNED ✨</span>':''}</div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  // Charts
+  requestAnimationFrame(() => {
+    const base = { responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}},
+      scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e293b'}},y:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e293b'},beginAtZero:true}} };
+
+    const wCtx = document.getElementById('analysisWeeklyChart');
+    if (wCtx) new Chart(wCtx,{type:'line',data:{labels:weekData.map(w=>w.label),datasets:[{label:'Hours',data:weekData.map(w=>Math.round(w.hours*10)/10),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',fill:true,tension:.4,pointBackgroundColor:'#6366f1',pointRadius:4,borderWidth:2}]},options:base});
+
+    const cCtx = document.getElementById('analysisCatChart');
+    if (cCtx && stats.totalTasks>0) new Chart(cCtx,{type:'doughnut',data:{labels:['Support','Testing','Project'],datasets:[{data:[stats.supportCount,stats.testingCount,stats.projectCount],backgroundColor:['rgba(59,130,246,.8)','rgba(139,92,246,.8)','rgba(16,185,129,.8)'],borderColor:['#3b82f6','#8b5cf6','#10b981'],borderWidth:2,hoverOffset:6}]},options:{...base,cutout:'65%',scales:{},plugins:{...base.plugins,legend:{...base.plugins.legend,position:'bottom'}}}});
+  });
+}
+
+// ── Export Tab ──────────────────────────────────────────────
+let exportSubcats = {};
+
+async function initExportTab() {
+  // Load subcats for filter
+  const [s,t,p] = await Promise.all([
+    db.from('support_subcategories').select('name').order('sort_order'),
+    db.from('testing_subcategories').select('name').order('sort_order'),
+    db.from('project_subcategories').select('name').order('sort_order'),
+  ]);
+  exportSubcats = {
+    Support: (s.data||[]).map(r=>r.name),
+    Testing: (t.data||[]).map(r=>r.name),
+    Project: (p.data||[]).map(r=>r.name),
+  };
+  updateExportCount();
+}
+
+function onExportCatChange() {
+  const cat = document.getElementById('exportCatSel').value;
+  const sel = document.getElementById('exportSubcatSel');
+  sel.innerHTML = '<option value="">All Sub-Categories</option>';
+  (exportSubcats[cat]||[]).forEach(n => sel.appendChild(new Option(n,n)));
+  updateExportCount();
+}
+
+function getExportFiltered() {
+  const uid    = document.getElementById('exportUserSel').value;
+  const cat    = document.getElementById('exportCatSel').value;
+  const subcat = document.getElementById('exportSubcatSel').value;
+  const month  = document.getElementById('exportMonthSel').value;
+  const from   = document.getElementById('exportDateFrom').value;
+  const to     = document.getElementById('exportDateTo').value;
+  return allLogs.filter(l => {
+    if (uid    && l.user_id      !== uid)    return false;
+    if (cat    && l.category     !== cat)    return false;
+    if (subcat && l.sub_category !== subcat) return false;
+    if (month  && l.month        !== month)  return false;
+    if (from   && l.log_date     < from)     return false;
+    if (to     && l.log_date     > to)       return false;
+    return true;
+  });
+}
+
+function updateExportCount() {
+  const f = getExportFiltered();
+  const el = document.getElementById('exportPreviewCount');
+  if (el) el.textContent = `${f.length} records match current filters`;
+}
+
+['exportUserSel','exportCatSel','exportSubcatSel','exportMonthSel','exportDateFrom','exportDateTo'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', updateExportCount);
+});
+
+function clearExportFilters() {
+  ['exportUserSel','exportCatSel','exportSubcatSel','exportMonthSel'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['exportDateFrom','exportDateTo'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('exportSubcatSel').innerHTML = '<option value="">All Sub-Categories</option>';
+  updateExportCount();
+}
+
+function exportFiltered() {
+  const data = getExportFiltered().map(mapLogForExport);
+  if (!data.length) { showToast('No records match your filters', 'warning'); return; }
+  const parts = [];
+  const uid = document.getElementById('exportUserSel').value;
+  if (uid) { const u = allUsers.find(x=>x.id===uid); if (u) parts.push(u.username); }
+  const cat = document.getElementById('exportCatSel').value; if (cat) parts.push(cat.toLowerCase());
+  const month = document.getElementById('exportMonthSel').value; if (month) parts.push(month.toLowerCase());
+  const fname = `worktracker_${parts.join('_')||'filtered'}_${new Date().toISOString().slice(0,10)}.csv`;
+  exportToCSV(data, fname);
+  showToast(`Exported ${data.length} records`, 'success');
+}
+
+// ── Task share donut click ──────────────────────────────────
+document.getElementById('deleteUserModal').classList.remove('open');
   deletingUserId = null;
 }
 
@@ -1056,9 +1642,38 @@ function renderComparison() {
     // ── 5b. Task share donut ──────────────────────────────
     const donutCtx = document.getElementById('compTaskDonut');
     if (donutCtx && userStats.some(us=>us.stats.totalTasks>0)) {
-      compCharts.donut=new Chart(donutCtx,{type:'doughnut',
+      compCharts.donut = new Chart(donutCtx, {
+        type:'doughnut',
         data:{labels:userStats.map(us=>us.user.full_name.split(' ')[0]),datasets:[{data:userStats.map(us=>us.stats.totalTasks),backgroundColor:COLORS.slice(0,userStats.length),borderColor:'#0f1629',borderWidth:3,hoverOffset:8}]},
-        options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}},position:'bottom'}}}});
+        options:{
+          responsive:true, maintainAspectRatio:false, cutout:'60%',
+          plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}},position:'bottom'}},
+          onClick:(evt,elements)=>{
+            if (!elements.length) return;
+            const us = userStats[elements[0].index];
+            if (!us) return;
+            const sec   = document.getElementById('donutDrillSection');
+            const title = document.getElementById('donutDrillTitle');
+            const body  = document.getElementById('donutDrillBody');
+            const logs  = filtered.filter(l=>l.user_id===us.user.id);
+            title.textContent = `📋 ${us.user.full_name}'s Tasks (${periodLabel})`;
+            if (!logs.length) {
+              body.innerHTML = `<tr><td colspan="5"><div class="empty-state" style="padding:20px;"><div class="empty-icon">📭</div><div class="empty-text">No tasks in this period</div></div></td></tr>`;
+            } else {
+              body.innerHTML = logs.sort((a,b)=>b.log_date.localeCompare(a.log_date)).map(l=>`
+                <tr>
+                  <td class="td-sm">${formatDate(l.log_date)}</td>
+                  <td>${truncate(l.task_project,40)}</td>
+                  <td>${categoryBadge(l.category)}<span style="font-size:11px;color:var(--text-3);margin-left:4px;">${l.sub_category||''}</span></td>
+                  <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
+                  <td class="td-sm td-muted">${truncate(l.accomplishment,40)}</td>
+                </tr>`).join('');
+            }
+            sec.style.display='block';
+            sec.scrollIntoView({behavior:'smooth',block:'start'});
+          }
+        }
+      });
     }
 
     // ── 6. Full metrics table ─────────────────────────────
@@ -1229,6 +1844,241 @@ async function saveAdminEdit() {
   }
 }
 
+// ── Employee Analysis Tab ──────────────────────────────────
+async function initAnalysisTab() {
+  const sel = document.getElementById('analysisUserSel');
+  if (!sel) return;
+  if (sel.options.length <= 1) {
+    sel.innerHTML = '<option value="">Choose an employee…</option>';
+    allUsers.forEach(u => sel.appendChild(new Option(u.full_name, u.id)));
+  }
+}
+
+async function loadEmployeeAnalysis() {
+  const uid = document.getElementById('analysisUserSel').value;
+  const container = document.getElementById('analysisContent');
+  if (!uid) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🔬</div><div class="empty-text">Select an employee above</div></div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="loading" style="margin:40px auto;flex-direction:column;gap:12px;"><div class="spinner" style="width:32px;height:32px;border-width:3px;"></div><span style="color:var(--text-3)">Loading analysis…</span></div>`;
+
+  const user = allUsers.find(u => u.id === uid);
+  const [logsRes, leavesRes, warRes] = await Promise.all([
+    db.from('task_logs').select('*').eq('user_id', uid).order('log_date', { ascending: true }),
+    db.from('employee_leaves').select('start_date,end_date').eq('user_id', uid),
+    db.from('app_settings').select('value').eq('key','war_days_off').maybeSingle(),
+  ]);
+
+  const logs      = logsRes.data || [];
+  const leaves    = leavesRes.data || [];
+  const warDays   = parseInt(warRes.data?.value || '0') || 0;
+  const wt        = getWorkingDaysInfo(warDays, leaves);
+  const stats     = calculateStats(logs);
+  const level     = getUserLevel(stats.totalHours);
+  const xp        = getXPProgress(stats.totalHours);
+  const badges    = getEarnedBadges(stats);
+  const earnedCount = badges.filter(b=>b.earned).length;
+  const initials  = user.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+  const daysEq    = convertHoursToDays(logs);
+  const hoursPct  = wt.expectedHours > 0 ? Math.min(Math.round((stats.totalHours/wt.expectedHours)*100),999) : 0;
+  const attendPct = wt.workingDays > 0 ? Math.min(Math.round((stats.uniqueDays/wt.workingDays)*100),100) : 0;
+
+  // Team averages
+  const teamStats = allUsers.map(u => {
+    const ul = allLogs.filter(l => l.user_id === u.id);
+    return calculateStats(ul);
+  });
+  const avg = (key) => teamStats.length ? Math.round((teamStats.reduce((s,ts)=>s+ts[key],0)/teamStats.length)*10)/10 : 0;
+
+  const weekData = aggregateByWeek(logs, 10);
+  const thisMonth = getMonthName(new Date());
+  const monthLogs = logs.filter(l => l.month === thisMonth);
+
+  document.getElementById('analysisPeriodInfo').textContent =
+    `${wt.periodLabel} · ${wt.workingDays} working days · ${wt.leaveDays} leave days`;
+
+  container.innerHTML = `
+    <!-- Hero -->
+    <div class="perf-hero" style="margin-bottom:20px;">
+      <div class="hero-avatar ${level.class}" style="border-color:${level.color};background:linear-gradient(135deg,${level.color}33,${level.color}11);">${initials}</div>
+      <div class="hero-info">
+        <div class="hero-name">${user.full_name}</div>
+        <div class="hero-meta">@${user.username} · ${level.icon} ${level.name} · Lv.${level.level} · 🏅 ${earnedCount}/${badges.length} badges</div>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:12px;flex-wrap:wrap;">
+          <div class="level-badge ${level.class}" style="font-size:12px;padding:5px 12px;">${level.icon} ${level.name}</div>
+          <div style="flex:1;max-width:200px;">
+            <div style="font-size:10px;color:var(--text-3);margin-bottom:3px;">XP Progress: ${xp}%</div>
+            <div class="progress-bar"><div class="progress-fill lvl-fill-${level.level}" style="width:${xp}%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Working time banner -->
+    <div style="background:linear-gradient(135deg,#0d1f3c,#162040);border:1px solid #1e3a5f;border-radius:var(--radius-lg);padding:14px 20px;margin-bottom:20px;font-size:13px;color:var(--text-2);">
+      📅 <strong style="color:var(--text-1)">${wt.periodLabel}</strong> &nbsp;·&nbsp;
+      ${wt.workingDays} working days &nbsp;·&nbsp;
+      ${wt.leaveDays} leave days excluded &nbsp;·&nbsp;
+      ${wt.holidayCount} public holidays &nbsp;·&nbsp;
+      Expected: <strong style="color:var(--text-1)">${wt.expectedHours}h</strong>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="kpi-grid" style="margin-bottom:20px;">
+      <div class="kpi-card accent-purple"><span class="kpi-icon">⏱️</span><div class="kpi-label">Total Hours</div><div class="kpi-value">${stats.totalHours}h</div><div class="kpi-sub">Expected: ${wt.expectedHours}h</div></div>
+      <div class="kpi-card accent-gold"><span class="kpi-icon">📋</span><div class="kpi-label">Total Tasks</div><div class="kpi-value">${stats.totalTasks}</div><div class="kpi-sub">${thisMonth}: ${monthLogs.length}</div></div>
+      <div class="kpi-card accent-teal"><span class="kpi-icon">🔥</span><div class="kpi-label">Current Streak</div><div class="kpi-value">${stats.currentStreak}d</div><div class="kpi-sub">Best: ${stats.maxStreak}d</div></div>
+      <div class="kpi-card accent-blue"><span class="kpi-icon">📅</span><div class="kpi-label">Days Active</div><div class="kpi-value">${stats.uniqueDays}</div><div class="kpi-sub">of ${wt.workingDays} working days</div></div>
+      <div class="kpi-card accent-green"><span class="kpi-icon">🎯</span><div class="kpi-label">Hours Completion</div><div class="kpi-value">${hoursPct}%</div><div class="kpi-sub">${stats.totalHours}h / ${wt.expectedHours}h</div></div>
+      <div class="kpi-card accent-red"><span class="kpi-icon">⚡</span><div class="kpi-label">Peak Day</div><div class="kpi-value">${stats.maxDayHours}h</div><div class="kpi-sub">${daysEq}d equivalent</div></div>
+    </div>
+
+    <!-- Team comparison bars -->
+    <div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;">📊 vs Team Average</div>
+    <div class="card" style="margin-bottom:20px;padding:20px;">
+      ${[
+        { label:'Total Hours',     val:stats.totalHours,         avg:avg('totalHours'),         unit:'h', color:'#6366f1' },
+        { label:'Total Tasks',     val:stats.totalTasks,         avg:avg('totalTasks'),          unit:'',  color:'#10b981' },
+        { label:'Days Active',     val:stats.uniqueDays,         avg:avg('uniqueDays'),          unit:'d', color:'#f59e0b' },
+        { label:'Best Streak',     val:stats.maxStreak,          avg:avg('maxStreak'),           unit:'d', color:'#ef4444' },
+        { label:'Achievements',    val:stats.accomplishmentCount,avg:avg('accomplishmentCount'), unit:'',  color:'#8b5cf6' },
+        { label:'Support Hours',   val:stats.supportHours,       avg:avg('supportHours'),        unit:'h', color:'#3b82f6' },
+        { label:'Testing Hours',   val:stats.testingHours,       avg:avg('testingHours'),        unit:'h', color:'#8b5cf6' },
+        { label:'Project Hours',   val:stats.projectHours,       avg:avg('projectHours'),        unit:'h', color:'#10b981' },
+      ].map(m => {
+        const maxV  = Math.max(m.val, m.avg, 1);
+        const empPct = Math.round(m.val/maxV*100);
+        const avgPct = Math.round(m.avg/maxV*100);
+        const better = m.val >= m.avg;
+        return `<div style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+            <span style="font-weight:600;">${m.label}</span>
+            <span><span style="color:${m.color};font-weight:700;">${m.val}${m.unit}</span> <span style="color:var(--text-3);">vs avg ${m.avg}${m.unit}</span> <span style="color:${better?'var(--success)':'var(--warning)'};">${better?'▲':'▼'}</span></span>
+          </div>
+          <div style="position:relative;height:8px;background:var(--border);border-radius:999px;overflow:visible;margin-bottom:2px;">
+            <div style="height:100%;width:${empPct}%;background:${m.color};border-radius:999px;transition:width .8s;"></div>
+          </div>
+          <div style="position:relative;height:4px;background:var(--border);border-radius:999px;overflow:visible;">
+            <div style="height:100%;width:${avgPct}%;background:var(--text-3);border-radius:999px;opacity:.5;"></div>
+          </div>
+          <div style="display:flex;gap:12px;font-size:10px;color:var(--text-3);margin-top:2px;">
+            <span style="color:${m.color};">■ This employee</span><span>■ Team average</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid" style="margin-bottom:20px;">
+      <div class="chart-card"><div class="card-title">📈 Weekly Hours</div><div class="chart-container"><canvas id="analysisWeeklyChart"></canvas></div></div>
+      <div class="chart-card"><div class="card-title">🍩 Category Split</div><div class="chart-container"><canvas id="analysisCatChart"></canvas></div></div>
+    </div>
+
+    <!-- Badges -->
+    <div class="card">
+      <div class="card-title-lg">🏅 Badges (${earnedCount}/${badges.length})</div>
+      <div class="badges-grid">
+        ${badges.map(b=>`<div class="badge-card ${b.earned?'earned':'locked'}"><span class="badge-emoji">${b.icon}</span><span class="badge-name">${b.name}</span><span class="badge-desc">${b.desc}</span>${b.earned?'<span style="font-size:10px;color:var(--gold);font-weight:700;">EARNED ✨</span>':''}</div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  // Charts
+  requestAnimationFrame(() => {
+    const base = { responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}},
+      scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e293b'}},y:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e293b'},beginAtZero:true}} };
+
+    const wCtx = document.getElementById('analysisWeeklyChart');
+    if (wCtx) new Chart(wCtx,{type:'line',data:{labels:weekData.map(w=>w.label),datasets:[{label:'Hours',data:weekData.map(w=>Math.round(w.hours*10)/10),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',fill:true,tension:.4,pointBackgroundColor:'#6366f1',pointRadius:4,borderWidth:2}]},options:base});
+
+    const cCtx = document.getElementById('analysisCatChart');
+    if (cCtx && stats.totalTasks>0) new Chart(cCtx,{type:'doughnut',data:{labels:['Support','Testing','Project'],datasets:[{data:[stats.supportCount,stats.testingCount,stats.projectCount],backgroundColor:['rgba(59,130,246,.8)','rgba(139,92,246,.8)','rgba(16,185,129,.8)'],borderColor:['#3b82f6','#8b5cf6','#10b981'],borderWidth:2,hoverOffset:6}]},options:{...base,cutout:'65%',scales:{},plugins:{...base.plugins,legend:{...base.plugins.legend,position:'bottom'}}}});
+  });
+}
+
+// ── Export Tab ──────────────────────────────────────────────
+let exportSubcats = {};
+
+async function initExportTab() {
+  // Load subcats for filter
+  const [s,t,p] = await Promise.all([
+    db.from('support_subcategories').select('name').order('sort_order'),
+    db.from('testing_subcategories').select('name').order('sort_order'),
+    db.from('project_subcategories').select('name').order('sort_order'),
+  ]);
+  exportSubcats = {
+    Support: (s.data||[]).map(r=>r.name),
+    Testing: (t.data||[]).map(r=>r.name),
+    Project: (p.data||[]).map(r=>r.name),
+  };
+  updateExportCount();
+}
+
+function onExportCatChange() {
+  const cat = document.getElementById('exportCatSel').value;
+  const sel = document.getElementById('exportSubcatSel');
+  sel.innerHTML = '<option value="">All Sub-Categories</option>';
+  (exportSubcats[cat]||[]).forEach(n => sel.appendChild(new Option(n,n)));
+  updateExportCount();
+}
+
+function getExportFiltered() {
+  const uid    = document.getElementById('exportUserSel').value;
+  const cat    = document.getElementById('exportCatSel').value;
+  const subcat = document.getElementById('exportSubcatSel').value;
+  const month  = document.getElementById('exportMonthSel').value;
+  const from   = document.getElementById('exportDateFrom').value;
+  const to     = document.getElementById('exportDateTo').value;
+  return allLogs.filter(l => {
+    if (uid    && l.user_id      !== uid)    return false;
+    if (cat    && l.category     !== cat)    return false;
+    if (subcat && l.sub_category !== subcat) return false;
+    if (month  && l.month        !== month)  return false;
+    if (from   && l.log_date     < from)     return false;
+    if (to     && l.log_date     > to)       return false;
+    return true;
+  });
+}
+
+function updateExportCount() {
+  const f = getExportFiltered();
+  const el = document.getElementById('exportPreviewCount');
+  if (el) el.textContent = `${f.length} records match current filters`;
+}
+
+['exportUserSel','exportCatSel','exportSubcatSel','exportMonthSel','exportDateFrom','exportDateTo'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', updateExportCount);
+});
+
+function clearExportFilters() {
+  ['exportUserSel','exportCatSel','exportSubcatSel','exportMonthSel'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['exportDateFrom','exportDateTo'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('exportSubcatSel').innerHTML = '<option value="">All Sub-Categories</option>';
+  updateExportCount();
+}
+
+function exportFiltered() {
+  const data = getExportFiltered().map(mapLogForExport);
+  if (!data.length) { showToast('No records match your filters', 'warning'); return; }
+  const parts = [];
+  const uid = document.getElementById('exportUserSel').value;
+  if (uid) { const u = allUsers.find(x=>x.id===uid); if (u) parts.push(u.username); }
+  const cat = document.getElementById('exportCatSel').value; if (cat) parts.push(cat.toLowerCase());
+  const month = document.getElementById('exportMonthSel').value; if (month) parts.push(month.toLowerCase());
+  const fname = `worktracker_${parts.join('_')||'filtered'}_${new Date().toISOString().slice(0,10)}.csv`;
+  exportToCSV(data, fname);
+  showToast(`Exported ${data.length} records`, 'success');
+}
+
+// ── Task share donut click ──────────────────────────────────
 document.getElementById('deleteUserModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteUserModal(); });
 document.getElementById('resetPassModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeResetPassModal(); });
 document.getElementById('adminEditModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeAdminEdit(); });
