@@ -223,7 +223,8 @@
 
   async function loadUsers() {
     const { data } = await db.from('users').select('id, full_name, role').order('full_name');
-    allUsers = data || [];
+    // Non-admins cannot see admin users' data
+    allUsers = (data || []).filter(u => session.role === 'admin' || u.role !== 'admin');
   }
 
   async function loadLogs() {
