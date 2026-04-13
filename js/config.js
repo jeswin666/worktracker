@@ -2,7 +2,6 @@
 // WorkTracker — Configuration
 // ⚠️  Replace the values below with YOUR Supabase credentials
 // ============================================================
-
 const SUPABASE_URL      = 'https://vvuqhuvbwnlavnqmidlt.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2dXFodXZid25sYXZucW1pZGx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMTM4NDIsImV4cCI6MjA5MTU4OTg0Mn0.l8m5M_5AVupr6SmJv7ax9mQhtHni5S8_x5nLwpSsBNg';
 
