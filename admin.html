@@ -20,6 +20,7 @@
   </style>
 </head>
 <body>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <div class="app-wrapper">
   <button class="menu-toggle" id="menuToggle">☰</button>
   <aside class="sidebar" id="app-sidebar"></aside>
@@ -123,7 +124,7 @@
         <div class="table-wrapper" style="border:none;border-radius:0;">
           <table>
             <thead><tr>
-              <th>Date</th><th>Team Member</th><th>Task</th><th>Category</th>
+              <th>Date</th><th>Team Member</th><th>Task</th><th>Sub-Category</th>
               <th>Hours</th><th>Accomplishment</th><th>Notes</th><th>Actions</th>
             </tr></thead>
             <tbody id="recTableBody">
@@ -174,8 +175,26 @@
         </div>
         <div class="card" style="padding:20px;">
           <div style="font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:2px;">🏷️ Category Hours Breakdown</div>
-          <div style="font-size:11px;color:var(--text-3);margin-bottom:14px;">Support · Testing · Project per employee</div>
+          <div style="font-size:11px;color:var(--text-3);margin-bottom:14px;">Support · Testing · Project per employee — <span style="color:var(--accent-light);">click a bar to drill down ↓</span></div>
           <div style="position:relative;height:260px;"><canvas id="compCategoryChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ── Drill-down table (shown on chart click) ── -->
+      <div id="drillDownSection" style="display:none;margin-bottom:28px;">
+        <div class="card" style="padding:0;">
+          <div style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+            <span id="drillDownTitle" class="card-title-lg mb-0"></span>
+            <button class="btn btn-secondary btn-sm" onclick="closeDrillDown()">✕ Close</button>
+          </div>
+          <div class="table-wrapper" style="border:none;border-radius:0;">
+            <table>
+              <thead><tr>
+                <th>Date</th><th>Task</th><th>Sub-Category</th><th>Hours</th><th>Accomplishment</th>
+              </tr></thead>
+              <tbody id="drillDownBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -277,6 +296,22 @@
           <div class="card-title-lg">🇰🇼 Kuwait Public Holidays 2026</div>
           <p style="color:var(--text-3);font-size:12px;margin-bottom:16px;">⚠️ Islamic holiday dates are approximate. Update <code style="background:var(--bg-surface);padding:2px 6px;border-radius:4px;">js/config.js</code> → <code>KUWAIT_HOLIDAYS_2026</code> if official dates differ.</p>
           <div style="display:flex;flex-direction:column;gap:8px;" id="holidayList"></div>
+        </div>
+
+
+        <!-- Project Sub-categories -->
+        <div class="card" style="margin-top:20px;">
+          <div class="card-title-lg">🚀 Project Sub-Categories</div>
+          <p style="color:var(--text-2);font-size:13px;margin-bottom:20px;line-height:1.6;">
+            Define the sub-categories available under <strong style="color:var(--project)">Project</strong> when team members log tasks.
+          </p>
+          <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+            <input type="text" id="newSubcatInput" class="form-control" placeholder="e.g. Infrastructure, Migration…" style="flex:1;min-width:180px;" />
+            <button class="btn btn-primary" onclick="addProjectSubcat()">➕ Add</button>
+          </div>
+          <div id="projectSubcatList" style="display:flex;flex-direction:column;gap:8px;">
+            <div class="loading"><div class="spinner"></div> Loading…</div>
+          </div>
         </div>
 
       </div>
@@ -418,6 +453,7 @@ async function init() {
   loadSidebarStats(session.id);
   document.getElementById('menuToggle').addEventListener('click', () => {
     document.getElementById('app-sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
   });
   await Promise.all([loadUsers(), loadAllLogs()]);
   renderUserList();
@@ -475,6 +511,45 @@ async function loadSettingsTab() {
       </div>`;
     }).join('');
   }
+  // Load project sub-categories
+  loadProjectSubcatList();
+}
+
+// ── Project Sub-category Management ────────────────────────
+async function loadProjectSubcatList() {
+  const el = document.getElementById('projectSubcatList');
+  if (!el) return;
+  const { data } = await db.from('project_subcategories').select('id, name').order('sort_order').order('name');
+  if (!data || !data.length) {
+    el.innerHTML = `<div style="font-size:13px;color:var(--text-3);padding:12px;">No project sub-categories yet. Add one above.</div>`;
+    return;
+  }
+  el.innerHTML = data.map(s => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);">
+      <span style="font-size:13px;font-weight:600;">🚀 ${s.name}</span>
+      <button class="btn btn-danger btn-sm" onclick="deleteProjectSubcat('${s.id}','${s.name.replace(/'/g,"\'")}')">🗑️ Remove</button>
+    </div>`).join('');
+}
+
+async function addProjectSubcat() {
+  const input = document.getElementById('newSubcatInput');
+  const name  = input.value.trim();
+  if (!name) { showToast('Enter a sub-category name', 'warning'); return; }
+  const { error } = await db.from('project_subcategories').insert({ name });
+  if (error) {
+    showToast(error.code === '23505' ? 'That sub-category already exists' : error.message, 'error');
+  } else {
+    showToast(`"${name}" added!`, 'success');
+    input.value = '';
+    loadProjectSubcatList();
+  }
+}
+
+async function deleteProjectSubcat(id, name) {
+  if (!confirm(`Remove "${name}"? This won't affect existing logs.`)) return;
+  const { error } = await db.from('project_subcategories').delete().eq('id', id);
+  if (error) showToast('Failed: ' + error.message, 'error');
+  else { showToast(`"${name}" removed`, 'success'); loadProjectSubcatList(); }
 }
 
 async function saveWarDays() {
@@ -634,7 +709,7 @@ async function viewUser(uid) {
       ${logs.map(l => `<tr>
         <td class="td-sm">${formatDate(l.log_date)}</td>
         <td>${truncate(l.task_project,40)}</td>
-        <td>${categoryBadge(l.category)}</td>
+        <td>${categoryBadge(l.category)}<span style='font-size:11px;color:var(--text-3);display:block;margin-top:2px;'>${l.sub_category||''}</span></td>
         <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
         <td class="td-sm">${truncate(l.accomplishment,40)}</td>
         <td class="td-muted td-sm">${truncate(l.comments_notes,35)}</td>
@@ -741,7 +816,7 @@ function renderRecordsTable() {
     <td class="td-sm">${formatDate(l.log_date)}</td>
     <td><strong>${l.team_member || l.users?.full_name || '—'}</strong></td>
     <td>${truncate(l.task_project, 35)}</td>
-    <td>${categoryBadge(l.category)}</td>
+    <td>${categoryBadge(l.category)}<span style='font-size:11px;color:var(--text-3);display:block;margin-top:2px;'>${l.sub_category||''}</span></td>
     <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
     <td class="td-sm">${truncate(l.accomplishment, 35)}</td>
     <td class="td-muted td-sm">${truncate(l.comments_notes, 30)}</td>
@@ -930,15 +1005,43 @@ function renderComparison() {
     // ── 4b. Horizontal stacked bar ────────────────────────
     const catCtx = document.getElementById('compCategoryChart');
     if (catCtx) {
-      compCharts.cat = new Chart(catCtx,{type:'bar',
-        data:{labels:userStats.map(us=>us.user.full_name.split(' ')[0]),datasets:[
-          {label:'🛡️ Support',data:userStats.map(us=>us.stats.supportHours),backgroundColor:'rgba(59,130,246,.85)',borderRadius:4},
-          {label:'🧪 Testing',data:userStats.map(us=>us.stats.testingHours),backgroundColor:'rgba(139,92,246,.85)'},
-          {label:'🚀 Project',data:userStats.map(us=>us.stats.projectHours),backgroundColor:'rgba(16,185,129,.85)'}]},
-        options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-          plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}},position:'bottom'}},
-          scales:{x:{stacked:true,ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e293b'},beginAtZero:true},y:{stacked:true,ticks:{color:'#94a3b8',font:{size:11}},grid:{display:false}}}}});
+      compCharts.cat = new Chart(catCtx, {
+        type: 'bar',
+        data: {
+          labels: userStats.map(us=>us.user.full_name.split(' ')[0]),
+          datasets: [
+            {label:'🛡️ Support', data:userStats.map(us=>us.stats.supportHours), backgroundColor:'rgba(59,130,246,.85)', borderRadius:4},
+            {label:'🧪 Testing', data:userStats.map(us=>us.stats.testingHours), backgroundColor:'rgba(139,92,246,.85)'},
+            {label:'🚀 Project', data:userStats.map(us=>us.stats.projectHours), backgroundColor:'rgba(16,185,129,.85)'},
+          ]
+        },
+        options: {
+          indexAxis:'y', responsive:true, maintainAspectRatio:false,
+          plugins:{
+            legend:{labels:{color:'#94a3b8',font:{size:11}},position:'bottom'},
+            tooltip:{callbacks:{label: ctx=>`${ctx.dataset.label.replace(/[^\w\s]/gi,'').trim()}: ${ctx.raw}h`}}
+          },
+          scales:{
+            x:{stacked:true,ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e293b'},beginAtZero:true},
+            y:{stacked:true,ticks:{color:'#94a3b8',font:{size:11}},grid:{display:false}}
+          },
+          onClick: (evt, elements) => {
+            if (!elements.length) return;
+            const el        = elements[0];
+            const catLabels = ['Support','Testing','Project'];
+            const category  = catLabels[el.datasetIndex];
+            const userStat  = userStats[el.index];
+            if (!userStat || !category) return;
+            showDrillDown(userStat, category, filtered, periodLabel);
+          }
+        }
+      });
     }
+
+    // expose filtered & periodLabel for drill-down closure
+    compCharts._filtered     = filtered;
+    compCharts._periodLabel  = periodLabel;
+    compCharts._userStats    = userStats;
 
     // ── 5a. Multi-line weekly ─────────────────────────────
     const weekCtx = document.getElementById('compWeeklyChart');
@@ -990,6 +1093,56 @@ function renderComparison() {
 }
 
 
+// ── Drill-Down ─────────────────────────────────────────────
+function showDrillDown(userStat, category, filtered, periodLabel) {
+  const logs = filtered.filter(l => l.user_id === userStat.user.id && l.category === category);
+  const section = document.getElementById('drillDownSection');
+  const title   = document.getElementById('drillDownTitle');
+  const body    = document.getElementById('drillDownBody');
+
+  title.textContent = `${category} — ${userStat.user.full_name} (${periodLabel})`;
+
+  if (!logs.length) {
+    body.innerHTML = `<tr><td colspan="5"><div class="empty-state" style="padding:24px;"><div class="empty-icon">📭</div><div class="empty-text">No ${category} logs in this period</div></div></td></tr>`;
+  } else {
+    const totalHours = logs.reduce((s,l)=>s+parseFloat(l.hours_spent||0),0);
+    // Group by sub_category for a mini summary
+    const subcatSummary = {};
+    logs.forEach(l => {
+      const sc = l.sub_category || category;
+      if (!subcatSummary[sc]) subcatSummary[sc] = 0;
+      subcatSummary[sc] += parseFloat(l.hours_spent||0);
+    });
+    const summaryHtml = Object.entries(subcatSummary)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([sc,h])=>`<span style="padding:3px 10px;border-radius:999px;background:var(--bg-surface);border:1px solid var(--border);font-size:11px;font-weight:600;">${sc}: ${h.toFixed(1)}h</span>`)
+      .join('');
+
+    body.innerHTML = `
+      <tr><td colspan="5" style="padding:10px 16px;background:var(--bg-surface);border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span style="font-size:12px;font-weight:700;">${logs.length} entries · ${totalHours.toFixed(1)}h total</span>
+          ${summaryHtml}
+        </div>
+      </td></tr>
+      ${logs.sort((a,b)=>b.log_date.localeCompare(a.log_date)).map(l=>`
+        <tr>
+          <td class="td-sm">${formatDate(l.log_date)}</td>
+          <td>${truncate(l.task_project,40)}</td>
+          <td><span style="font-size:12px;color:var(--text-2);">${l.sub_category||'—'}</span></td>
+          <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
+          <td class="td-sm td-muted">${truncate(l.accomplishment,45)}</td>
+        </tr>`).join('')}`;
+  }
+
+  section.style.display = 'block';
+  section.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function closeDrillDown() {
+  document.getElementById('drillDownSection').style.display = 'none';
+}
+
 // ── Export Tab ─────────────────────────────────────────────
 function setupExportSelects() {
   const exportUserSel = document.getElementById('exportUserSel');
@@ -1005,7 +1158,7 @@ function mapLogForExport(l) {
     date: l.log_date, week: l.week_number, month: l.month,
     team_member: l.team_member || user?.full_name || '', 
     task_project: l.task_project, description: l.task_description,
-    category: l.category, hours_spent: l.hours_spent,
+    category: l.category, sub_category: l.sub_category || '', hours_spent: l.hours_spent,
     accomplishment: l.accomplishment, notes: l.comments_notes,
   };
 }
