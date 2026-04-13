@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WorkTracker — My Tasks</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* ── Priority colours ─────────────────────────── */
+    :root {
+      --p-urgent:    #ef4444;
+      --p-important: #f59e0b;
+      --p-medium:    #6366f1;
+      --p-low:       #10b981;
+    }
+    .p-badge {
+      display:inline-flex;align-items:center;gap:5px;
+      padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid;
+    }
+    .p-Urgent    { border-color:var(--p-urgent);   color:var(--p-urgent);   background:rgba(239,68,68,.1); }
+    .p-Important { border-color:var(--p-important);color:var(--p-important);background:rgba(245,158,11,.1); }
+    .p-Medium    { border-color:var(--p-medium);   color:var(--p-medium);   background:rgba(99,102,241,.1); }
+    .p-Low       { border-color:var(--p-low);      color:var(--p-low);      background:rgba(16,185,129,.1); }
+
+    /* ── Task cards ───────────────────────────────── */
+    .task-lane { display:flex;flex-direction:column;gap:10px; }
+    .task-card {
+      background:var(--bg-card);border:1px solid var(--border);
+      border-radius:var(--radius-lg);padding:16px 18px;
+      display:flex;align-items:flex-start;gap:14px;
+      transition:.2s;position:relative;overflow:hidden;
+    }
+    .task-card::before {
+      content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
+    }
+    .task-card.p-Urgent::before    { background:var(--p-urgent); }
+    .task-card.p-Important::before { background:var(--p-important); }
+    .task-card.p-Medium::before    { background:var(--p-medium); }
+    .task-card.p-Low::before       { background:var(--p-low); }
+    .task-card:hover { transform:translateY(-1px);border-color:var(--border-light); }
+
+    .task-card-body { flex:1;min-width:0; }
+    .task-title { font-weight:700;font-size:14px;margin-bottom:6px; }
+    .task-meta  { display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--text-3); }
+    .task-actions { display:flex;gap:8px;flex-shrink:0; }
+
+    /* ── Priority selector cards ──────────────────── */
+    .priority-cards { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:4px; }
+    .priority-pick {
+      border:2px solid var(--border);border-radius:var(--radius);
+      padding:10px;text-align:center;cursor:pointer;transition:.2s;
+    }
+    .priority-pick:hover { border-color:var(--border-light); }
+    .priority-pick.sel-Urgent    { border-color:var(--p-urgent);   background:rgba(239,68,68,.08); }
+    .priority-pick.sel-Important { border-color:var(--p-important);background:rgba(245,158,11,.08); }
+    .priority-pick.sel-Medium    { border-color:var(--p-medium);   background:rgba(99,102,241,.08); }
+    .priority-pick.sel-Low       { border-color:var(--p-low);      background:rgba(16,185,129,.08); }
+    .priority-pick-icon { font-size:18px;margin-bottom:4px; }
+    .priority-pick-label { font-size:11px;font-weight:700; }
+
+    /* ── Section headers ──────────────────────────── */
+    .section-hdr {
+      display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;
+      border-bottom:1px solid var(--border);
+    }
+    .section-hdr-title { font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em; }
+    .section-count {
+      font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;
+      background:var(--bg-surface);border:1px solid var(--border);color:var(--text-3);
+    }
+
+    /* ── Admin user filter ────────────────────────── */
+    .user-filter-tabs { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px; }
+    .uft { padding:7px 16px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--border-light);background:var(--bg-card);color:var(--text-2);cursor:pointer;transition:.2s; }
+    .uft:hover { background:var(--bg-hover); }
+    .uft.active { background:var(--accent-glow);color:var(--accent-light);border-color:rgba(99,102,241,.4); }
+
+    .due-overdue { color:var(--danger) !important;font-weight:700; }
+    .due-today   { color:var(--gold) !important;font-weight:700; }
+    .due-soon    { color:var(--warning) !important; }
+  </style>
+</head>
+<body>
+<div class="app-wrapper">
+  <button class="menu-toggle" id="menuToggle">☰</button>
+  <aside class="sidebar" id="app-sidebar"></aside>
+
+  <main class="main-content fade-in">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">📌 My Tasks</h1>
+        <p class="page-subtitle" id="pageSubtitle">Your upcoming priorities — plan ahead, stay on track</p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddModal()">
+        <span>➕</span> Add Task
+      </button>
+    </div>
+
+    <!-- Admin: user filter tabs -->
+    <div id="adminFilterSection" style="display:none;">
+      <div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">Viewing tasks for:</div>
+      <div class="user-filter-tabs" id="userFilterTabs"></div>
+    </div>
+
+    <!-- Summary stat pills -->
+    <div id="statPills" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;"></div>
+
+    <!-- Task lanes by priority -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;" id="taskBoard">
+      <div style="loading"><div class="spinner"></div></div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Add Task Modal ── -->
+<div class="modal-backdrop" id="addTaskModal">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-header">
+      <h2 class="modal-title">📌 Add Priority Task</h2>
+      <button class="modal-close" onclick="closeAddModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Task Title <span class="req">*</span></label>
+      <input type="text" id="newTaskTitle" class="form-control" placeholder="What needs to be done?" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Priority <span class="req">*</span></label>
+      <div class="priority-cards">
+        <div class="priority-pick" id="pick-Urgent" onclick="selectPriority('Urgent')">
+          <div class="priority-pick-icon">🚨</div>
+          <div class="priority-pick-label" style="color:var(--p-urgent)">Urgent</div>
+        </div>
+        <div class="priority-pick" id="pick-Important" onclick="selectPriority('Important')">
+          <div class="priority-pick-icon">⭐</div>
+          <div class="priority-pick-label" style="color:var(--p-important)">Important</div>
+        </div>
+        <div class="priority-pick" id="pick-Medium" onclick="selectPriority('Medium')">
+          <div class="priority-pick-icon">📋</div>
+          <div class="priority-pick-label" style="color:var(--p-medium)">Medium</div>
+        </div>
+        <div class="priority-pick" id="pick-Low" onclick="selectPriority('Low')">
+          <div class="priority-pick-icon">🕐</div>
+          <div class="priority-pick-label" style="color:var(--p-low)">Low</div>
+        </div>
+      </div>
+      <input type="hidden" id="newTaskPriority" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Due Date</label>
+      <input type="date" id="newTaskDue" class="form-control" />
+    </div>
+    <div id="addTaskError" class="login-error" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+      <button class="btn btn-primary" id="addTaskBtn" onclick="saveTask()">📌 Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Move to Log Modal ── -->
+<div class="modal-backdrop" id="logModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <h2 class="modal-title">📝 Log This Task</h2>
+      <button class="modal-close" onclick="closeLogModal()">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:20px;">Fill in the details and save — this task will be moved to your work log.</p>
+    <div class="form-group">
+      <label class="form-label">Task / Project <span class="req">*</span></label>
+      <input type="text" id="logTaskTitle" class="form-control" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea id="logTaskDesc" class="form-control" rows="2" placeholder="Brief description…"></textarea>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Date <span class="req">*</span></label>
+        <input type="date" id="logTaskDate" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Hours Spent <span class="req">*</span></label>
+        <input type="number" id="logTaskHours" class="form-control" min="0.25" max="24" step="0.25" placeholder="e.g. 2.5" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category <span class="req">*</span></label>
+      <select id="logTaskCategory" class="form-control">
+        <option value="">Select category…</option>
+        <option value="Support">🛡️ Support</option>
+        <option value="Testing">🧪 Testing</option>
+        <option value="Project">🚀 Project</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Key Accomplishment</label>
+      <input type="text" id="logTaskAccomp" class="form-control" placeholder="What did you achieve?" />
+    </div>
+    <div id="logModalError" class="login-error" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeLogModal()">Cancel</button>
+      <button class="btn btn-primary" id="logTaskBtn" onclick="submitTaskLog()">💾 Save to Work Log</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete Confirm Modal ── -->
+<div class="modal-backdrop" id="deleteTaskModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <h2 class="modal-title">🗑️ Delete Task</h2>
+      <button class="modal-close" onclick="closeDeleteTaskModal()">✕</button>
+    </div>
+    <p style="color:var(--text-2);margin-bottom:24px;">Permanently delete <strong id="deleteTaskName" style="color:var(--text-1)"></strong>? This cannot be undone.</p>
+    <div style="display:flex;gap:12px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeDeleteTaskModal()">Cancel</button>
+      <button class="btn btn-danger" id="confirmDeleteTaskBtn">🗑️ Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/utils.js"></script>
+<script>
+const session = requireAuth();
+let allTasks = [], allUsers = [], activeUserId = session.id;
+let selectedPriority = '';
+let loggingTaskId = null, deletingTaskId = null;
+
+const PRIORITY_ORDER = ['Urgent','Important','Medium','Low'];
+const PRIORITY_ICONS = { Urgent:'🚨', Important:'⭐', Medium:'📋', Low:'🕐' };
+
+async function init() {
+  renderSidebar('tasks');
+  loadSidebarStats(session.id);
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    document.getElementById('app-sidebar').classList.toggle('open');
+  });
+
+  if (session.role === 'admin') {
+    await loadUsers();
+    buildAdminFilter();
+    document.getElementById('adminFilterSection').style.display = 'block';
+    document.getElementById('pageSubtitle').textContent = 'View and manage all team priority tasks';
+  }
+
+  await loadTasks();
+  renderBoard();
+}
+
+async function loadUsers() {
+  const { data } = await db.from('users').select('id, full_name').order('full_name');
+  allUsers = data || [];
+}
+
+async function loadTasks() {
+  let query = db.from('priority_tasks').select('*, users(full_name)').eq('status','pending').order('due_date', { ascending: true, nullsFirst: false });
+  if (session.role !== 'admin') query = query.eq('user_id', session.id);
+  const { data } = await query;
+  allTasks = data || [];
+}
+
+// ── Admin user filter ──────────────────────────────────────
+function buildAdminFilter() {
+  const tabs = document.getElementById('userFilterTabs');
+  const allBtn = document.createElement('button');
+  allBtn.className = 'uft active'; allBtn.textContent = 'All Members'; allBtn.dataset.uid = 'all';
+  allBtn.onclick = () => setActiveUser('all');
+  tabs.appendChild(allBtn);
+  allUsers.forEach(u => {
+    const btn = document.createElement('button');
+    btn.className = 'uft'; btn.textContent = u.full_name; btn.dataset.uid = u.id;
+    btn.onclick = () => setActiveUser(u.id);
+    tabs.appendChild(btn);
+  });
+}
+
+function setActiveUser(uid) {
+  activeUserId = uid;
+  document.querySelectorAll('.uft').forEach(b => b.classList.toggle('active', b.dataset.uid === uid));
+  renderBoard();
+}
+
+// ── Render board ───────────────────────────────────────────
+function getVisibleTasks() {
+  if (session.role === 'admin' && activeUserId !== 'all') return allTasks.filter(t => t.user_id === activeUserId);
+  if (session.role !== 'admin') return allTasks.filter(t => t.user_id === session.id);
+  return allTasks;
+}
+
+function dueDateClass(due) {
+  if (!due) return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(due); d.setHours(0,0,0,0);
+  const diff = Math.floor((d - today) / 86400000);
+  if (diff < 0)  return 'due-overdue';
+  if (diff === 0) return 'due-today';
+  if (diff <= 3) return 'due-soon';
+  return '';
+}
+
+function dueDateLabel(due) {
+  if (!due) return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(due); d.setHours(0,0,0,0);
+  const diff = Math.floor((d - today) / 86400000);
+  if (diff < 0)  return `⚠️ Overdue by ${Math.abs(diff)}d`;
+  if (diff === 0) return '🔥 Due Today';
+  if (diff === 1) return '⏰ Due Tomorrow';
+  return `📅 Due ${formatDate(due)}`;
+}
+
+function renderBoard() {
+  const tasks = getVisibleTasks();
+
+  // Stat pills
+  const counts = { Urgent:0, Important:0, Medium:0, Low:0 };
+  tasks.forEach(t => counts[t.priority]++);
+  document.getElementById('statPills').innerHTML = PRIORITY_ORDER.map(p => {
+    if (!counts[p]) return '';
+    const colors = { Urgent:'var(--p-urgent)', Important:'var(--p-important)', Medium:'var(--p-medium)', Low:'var(--p-low)' };
+    return `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:999px;background:var(--bg-card);border:1px solid ${colors[p]}22;font-size:12px;font-weight:700;color:${colors[p]};">
+      ${PRIORITY_ICONS[p]} ${p} <span style="background:${colors[p]}22;padding:1px 7px;border-radius:999px;">${counts[p]}</span>
+    </span>`;
+  }).join('');
+
+  const board = document.getElementById('taskBoard');
+  if (!tasks.length) {
+    board.innerHTML = `<div style="grid-column:1/-1;"><div class="empty-state"><div class="empty-icon">📌</div><div class="empty-text">No pending tasks</div><div class="empty-sub">Click "Add Task" to plan your priorities</div></div></div>`;
+    return;
+  }
+
+  // Group by priority
+  const grouped = {};
+  PRIORITY_ORDER.forEach(p => { grouped[p] = tasks.filter(t => t.priority === p); });
+
+  // Render 2-column grid: Urgent+Important left, Medium+Low right
+  const leftPriorities  = ['Urgent','Important'];
+  const rightPriorities = ['Medium','Low'];
+
+  const renderLane = (priorities) => priorities.map(p => {
+    const lane = grouped[p];
+    if (!lane.length) return '';
+    const colors = { Urgent:'var(--p-urgent)', Important:'var(--p-important)', Medium:'var(--p-medium)', Low:'var(--p-low)' };
+    return `<div style="margin-bottom:24px;">
+      <div class="section-hdr">
+        <span style="font-size:18px;">${PRIORITY_ICONS[p]}</span>
+        <span class="section-hdr-title" style="color:${colors[p]}">${p}</span>
+        <span class="section-count">${lane.length}</span>
+      </div>
+      <div class="task-lane">
+        ${lane.map(t => renderTaskCard(t)).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  board.innerHTML = `
+    <div>${renderLane(leftPriorities)}</div>
+    <div>${renderLane(rightPriorities)}</div>
+  `;
+}
+
+function renderTaskCard(t) {
+  const ownerName = (session.role === 'admin' && activeUserId === 'all')
+    ? `<span style="background:var(--bg-surface);padding:2px 8px;border-radius:999px;border:1px solid var(--border);">👤 ${t.users?.full_name || '—'}</span>`
+    : '';
+  const dClass = dueDateClass(t.due_date);
+  const dLabel = t.due_date ? `<span class="${dClass}">${dueDateLabel(t.due_date)}</span>` : '';
+
+  return `<div class="task-card p-${t.priority}">
+    <div class="task-card-body">
+      <div class="task-title">${t.title}</div>
+      <div class="task-meta">
+        <span class="p-badge p-${t.priority}">${PRIORITY_ICONS[t.priority]} ${t.priority}</span>
+        ${dLabel}
+        ${ownerName}
+      </div>
+    </div>
+    <div class="task-actions">
+      <button class="btn btn-success btn-sm" title="Move to Work Log" onclick="openLogModal('${t.id}','${t.title.replace(/'/g,"\\'")}')"  style="white-space:nowrap;">📝 Log</button>
+      <button class="btn btn-danger btn-sm btn-icon" title="Delete" onclick="openDeleteTaskModal('${t.id}','${t.title.replace(/'/g,"\\'")}')">🗑️</button>
+    </div>
+  </div>`;
+}
+
+// ── Add Task Modal ─────────────────────────────────────────
+function openAddModal() {
+  document.getElementById('newTaskTitle').value = '';
+  document.getElementById('newTaskDue').value = '';
+  document.getElementById('newTaskPriority').value = '';
+  document.getElementById('addTaskError').classList.remove('show');
+  selectedPriority = '';
+  ['Urgent','Important','Medium','Low'].forEach(p => document.getElementById('pick-'+p).className = 'priority-pick');
+  document.getElementById('addTaskModal').classList.add('open');
+  document.getElementById('newTaskTitle').focus();
+}
+function closeAddModal() { document.getElementById('addTaskModal').classList.remove('open'); }
+
+function selectPriority(p) {
+  selectedPriority = p;
+  document.getElementById('newTaskPriority').value = p;
+  ['Urgent','Important','Medium','Low'].forEach(x => {
+    document.getElementById('pick-'+x).className = 'priority-pick' + (x === p ? ' sel-'+p : '');
+  });
+}
+
+async function saveTask() {
+  const btn = document.getElementById('addTaskBtn');
+  const err = document.getElementById('addTaskError');
+  err.classList.remove('show');
+  const title = document.getElementById('newTaskTitle').value.trim();
+  const due   = document.getElementById('newTaskDue').value || null;
+  if (!title)             { err.textContent = 'Task title is required'; err.classList.add('show'); return; }
+  if (!selectedPriority)  { err.textContent = 'Please select a priority'; err.classList.add('show'); return; }
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const { error } = await db.from('priority_tasks').insert({
+    user_id: session.id, title, priority: selectedPriority, due_date: due, status: 'pending'
+  });
+  if (error) { err.textContent = error.message; err.classList.add('show'); }
+  else { showToast('Task added! 📌', 'success'); closeAddModal(); await loadTasks(); renderBoard(); }
+  btn.disabled = false; btn.innerHTML = '📌 Add Task';
+}
+
+// ── Move to Log Modal ──────────────────────────────────────
+function openLogModal(id, title) {
+  loggingTaskId = id;
+  const today = getTodayInfo();
+  document.getElementById('logTaskTitle').value    = title;
+  document.getElementById('logTaskDesc').value     = '';
+  document.getElementById('logTaskDate').value     = today.date;
+  document.getElementById('logTaskHours').value    = '';
+  document.getElementById('logTaskCategory').value = '';
+  document.getElementById('logTaskAccomp').value   = '';
+  document.getElementById('logModalError').classList.remove('show');
+  document.getElementById('logModal').classList.add('open');
+}
+function closeLogModal() { document.getElementById('logModal').classList.remove('open'); loggingTaskId = null; }
+
+async function submitTaskLog() {
+  const btn = document.getElementById('logTaskBtn');
+  const err = document.getElementById('logModalError');
+  err.classList.remove('show');
+  const dateVal  = document.getElementById('logTaskDate').value;
+  const hours    = parseFloat(document.getElementById('logTaskHours').value);
+  const category = document.getElementById('logTaskCategory').value;
+  const title    = document.getElementById('logTaskTitle').value.trim();
+
+  if (!title)    { err.textContent = 'Title is required';           err.classList.add('show'); return; }
+  if (!category) { err.textContent = 'Please select a category';    err.classList.add('show'); return; }
+  if (!hours || hours <= 0) { err.textContent = 'Enter valid hours'; err.classList.add('show'); return; }
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  // Insert task log
+  const { error: logErr } = await db.from('task_logs').insert({
+    user_id:          session.id,
+    team_member:      session.fullName,
+    log_date:         dateVal,
+    month:            getMonthName(dateVal),
+    week_number:      getWeekNumber(dateVal),
+    task_project:     title,
+    task_description: document.getElementById('logTaskDesc').value.trim(),
+    category,
+    hours_spent:      hours,
+    accomplishment:   document.getElementById('logTaskAccomp').value.trim(),
+    comments_notes:   '',
+  });
+
+  if (logErr) { err.textContent = logErr.message; err.classList.add('show'); btn.disabled=false; btn.innerHTML='💾 Save to Work Log'; return; }
+
+  // Mark priority task as logged
+  await db.from('priority_tasks').update({ status: 'logged' }).eq('id', loggingTaskId);
+
+  showToast('Logged to work log! ✅', 'success');
+  closeLogModal();
+  await loadTasks();
+  renderBoard();
+  loadSidebarStats(session.id);
+  btn.disabled = false; btn.innerHTML = '💾 Save to Work Log';
+}
+
+// ── Delete Task Modal ──────────────────────────────────────
+function openDeleteTaskModal(id, title) {
+  deletingTaskId = id;
+  document.getElementById('deleteTaskName').textContent = title;
+  document.getElementById('deleteTaskModal').classList.add('open');
+  document.getElementById('confirmDeleteTaskBtn').onclick = confirmDeleteTask;
+}
+function closeDeleteTaskModal() { document.getElementById('deleteTaskModal').classList.remove('open'); deletingTaskId = null; }
+
+async function confirmDeleteTask() {
+  const btn = document.getElementById('confirmDeleteTaskBtn');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  const { error } = await db.from('priority_tasks').delete().eq('id', deletingTaskId);
+  if (error) showToast('Failed to delete: ' + error.message, 'error');
+  else { showToast('Task deleted', 'success'); closeDeleteTaskModal(); await loadTasks(); renderBoard(); }
+  btn.disabled = false; btn.textContent = '🗑️ Delete';
+}
+
+// Backdrop close
+['addTaskModal','logModal','deleteTaskModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target === e.currentTarget) {
+      if (id === 'addTaskModal') closeAddModal();
+      else if (id === 'logModal') closeLogModal();
+      else closeDeleteTaskModal();
+    }
+  });
+});
+
+init();
+</script>
+</body>
+</html>
