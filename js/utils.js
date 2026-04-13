@@ -149,7 +149,7 @@ function calculateStats(logs) {
   if (!logs || logs.length === 0) return {
     totalHours: 0, totalTasks: 0, supportCount: 0, testingCount: 0,
     projectCount: 0, maxStreak: 0, currentStreak: 0, maxDayHours: 0,
-    uniqueDays: 0, hasAllRounder: false, accomplishmentRate: 0,
+    uniqueDays: 0, hasAllRounder: false, accomplishmentRate: 0, accomplishmentCount: 0,
     supportHours: 0, testingHours: 0, projectHours: 0
   };
 
@@ -192,13 +192,14 @@ function calculateStats(logs) {
   });
   const hasAllRounder = Object.values(byWeek).some(s => s.size === 3);
 
-  const withAccomp = logs.filter(l => l.accomplishment && l.accomplishment.trim()).length;
-  const accomplishmentRate = totalTasks > 0 ? Math.round((withAccomp / totalTasks) * 100) : 0;
+  // Count of entries where accomplishment was filled (not a rate — one task may be logged multiple times/day)
+  const accomplishmentCount = logs.filter(l => l.accomplishment && l.accomplishment.trim()).length;
+  const accomplishmentRate = totalTasks > 0 ? Math.round((accomplishmentCount / totalTasks) * 100) : 0;
 
   return {
     totalHours: Math.round(totalHours * 10) / 10, totalTasks,
     supportCount: supportLogs.length, testingCount: testingLogs.length, projectCount: projectLogs.length,
-    maxStreak, currentStreak: curStreak, maxDayHours, uniqueDays, hasAllRounder, accomplishmentRate,
+    maxStreak, currentStreak: curStreak, maxDayHours, uniqueDays, hasAllRounder, accomplishmentRate, accomplishmentCount,
     supportHours: Math.round(supportHours * 10) / 10,
     testingHours: Math.round(testingHours * 10) / 10,
     projectHours: Math.round(projectHours * 10) / 10,
@@ -273,6 +274,7 @@ function renderSidebar(activePage) {
       <a href="dashboard.html" class="nav-link ${activePage === 'dashboard' ? 'active' : ''}"><span class="nav-icon">📊</span><span>Dashboard</span></a>
       <a href="log.html" class="nav-link ${activePage === 'log' ? 'active' : ''}"><span class="nav-icon">➕</span><span>Log Task</span></a>
       <a href="performance.html" class="nav-link ${activePage === 'performance' ? 'active' : ''}"><span class="nav-icon">⚡</span><span>My Performance</span></a>
+      <a href="tasks.html" class="nav-link ${activePage === 'tasks' ? 'active' : ''}"><span class="nav-icon">📌</span><span>My Tasks</span></a>
       ${adminLink}
     </nav>
     <div class="sidebar-footer"><button class="logout-btn" onclick="logout()"><span>🚪</span> Logout</button></div>
