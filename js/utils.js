@@ -306,3 +306,9 @@ function categoryBadge(cat) {
 function truncate(str, n = 50) {
   return str && str.length > n ? str.slice(0, n) + '…' : (str || '—');
 }
+
+// ── Mobile sidebar close ───────────────────────────────────
+function closeSidebar() {
+  document.getElementById('app-sidebar')?.classList.remove('open');
+  document.getElementById('sidebarOverlay')?.classList.remove('open');
+}
