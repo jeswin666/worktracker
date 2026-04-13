@@ -15,21 +15,48 @@
       color:var(--text-2);cursor:pointer;transition:0.2s;
     }
     .hours-pill:hover { border-color:var(--accent);color:var(--accent-light); }
-    .category-cards { display:grid;grid-template-columns:repeat(3,1fr);gap:12px; }
-    .cat-select-card {
-      border:2px solid var(--border);border-radius:var(--radius-lg);
-      padding:16px;text-align:center;cursor:pointer;transition:all 0.2s;
-      background:var(--bg-card);
+
+    /* ── Subcategory picker ───────────────────── */
+    .subcat-group { margin-bottom:18px; }
+    .subcat-group-header {
+      display:flex;align-items:center;gap:8px;
+      font-size:12px;font-weight:800;text-transform:uppercase;
+      letter-spacing:.07em;color:var(--text-3);
+      margin-bottom:10px;padding-bottom:8px;
+      border-bottom:1px solid var(--border);
     }
-    .cat-select-card:hover { background:var(--bg-hover); }
-    .cat-select-card.selected-support { border-color:var(--support);background:rgba(59,130,246,0.08); }
-    .cat-select-card.selected-testing { border-color:var(--testing);background:rgba(139,92,246,0.08); }
-    .cat-select-card.selected-project { border-color:var(--project);background:rgba(16,185,129,0.08); }
-    .cat-card-icon { font-size:24px;margin-bottom:6px; }
-    .cat-card-name { font-size:13px;font-weight:700; }
+    .subcat-cards { display:flex;flex-wrap:wrap;gap:8px; }
+    .subcat-card {
+      display:flex;align-items:center;gap:8px;
+      padding:9px 16px;border-radius:var(--radius);
+      border:1px solid var(--border-light);background:var(--bg-card);
+      font-size:13px;font-weight:600;color:var(--text-2);
+      cursor:pointer;transition:all 0.2s;
+    }
+    .subcat-card:hover { background:var(--bg-hover);color:var(--text-1); }
+    .subcat-card.selected-Support {
+      border-color:var(--support);color:#93c5fd;
+      background:rgba(59,130,246,0.1);
+    }
+    .subcat-card.selected-Testing {
+      border-color:var(--testing);color:#c4b5fd;
+      background:rgba(139,92,246,0.1);
+    }
+    .subcat-card.selected-Project {
+      border-color:var(--project);color:#6ee7b7;
+      background:rgba(16,185,129,0.1);
+    }
+    .subcat-selected-display {
+      margin-top:12px;padding:10px 14px;
+      border-radius:var(--radius);background:var(--bg-surface);
+      border:1px solid var(--border);font-size:13px;
+      display:none;
+    }
+    .subcat-selected-display.show { display:flex;align-items:center;gap:10px; }
   </style>
 </head>
 <body>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <div class="app-wrapper">
   <button class="menu-toggle" id="menuToggle">☰</button>
   <aside class="sidebar" id="app-sidebar"></aside>
@@ -38,14 +65,15 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">➕ Log a Task</h1>
-        <p class="page-subtitle">Record your work for today — all time fields are auto-filled</p>
+        <p class="page-subtitle">Record your work — all time fields are auto-filled</p>
       </div>
-      <a href="dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+      <a href="dashboard.html" class="btn btn-secondary">← Dashboard</a>
     </div>
 
     <div class="log-wrapper">
       <div class="card">
-        <!-- Section: Who & When -->
+
+        <!-- Who & When -->
         <div class="card-title">📅 Who & When</div>
         <div class="form-grid-3" style="margin-bottom:24px;">
           <div class="form-group mb-0">
@@ -60,7 +88,7 @@
           </div>
           <div class="form-group mb-0">
             <label class="form-label">Month</label>
-            <input type="text" id="logMonth" class="form-control" readonly style="cursor:default;opacity:0.7;" />
+            <input type="text" id="logMonth" class="form-control" readonly style="cursor:default;opacity:.7;" />
           </div>
         </div>
         <div class="form-group">
@@ -71,7 +99,7 @@
 
         <hr class="divider" />
 
-        <!-- Section: Task Info -->
+        <!-- Task Info -->
         <div class="card-title">📝 Task Details</div>
         <div class="form-group">
           <label class="form-label">Task / Project Name <span class="req">*</span></label>
@@ -84,27 +112,51 @@
 
         <hr class="divider" />
 
-        <!-- Section: Category -->
+        <!-- Sub-category picker -->
         <div class="card-title">🏷️ Category <span class="req">*</span></div>
-        <div class="category-cards" style="margin-bottom:20px;">
-          <div class="cat-select-card" id="catSupport" onclick="selectCat('Support')">
-            <div class="cat-card-icon">🛡️</div>
-            <div class="cat-card-name" style="color:var(--support)">Support</div>
+        <p style="font-size:13px;color:var(--text-3);margin-bottom:16px;">Select the most specific sub-category — the parent category is set automatically.</p>
+
+        <!-- Support group -->
+        <div class="subcat-group">
+          <div class="subcat-group-header">
+            <span style="color:var(--support);">🛡️ Support</span>
           </div>
-          <div class="cat-select-card" id="catTesting" onclick="selectCat('Testing')">
-            <div class="cat-card-icon">🧪</div>
-            <div class="cat-card-name" style="color:var(--testing)">Testing</div>
+          <div class="subcat-cards" id="supportCards"></div>
+        </div>
+
+        <!-- Testing group -->
+        <div class="subcat-group">
+          <div class="subcat-group-header">
+            <span style="color:var(--testing);">🧪 Testing</span>
           </div>
-          <div class="cat-select-card" id="catProject" onclick="selectCat('Project')">
-            <div class="cat-card-icon">🚀</div>
-            <div class="cat-card-name" style="color:var(--project)">Project</div>
+          <div class="subcat-cards" id="testingCards"></div>
+        </div>
+
+        <!-- Project group -->
+        <div class="subcat-group">
+          <div class="subcat-group-header">
+            <span style="color:var(--project);">🚀 Project</span>
+          </div>
+          <div class="subcat-cards" id="projectCards">
+            <div style="font-size:12px;color:var(--text-3);">Loading project sub-categories…</div>
           </div>
         </div>
+
+        <!-- Selection display -->
+        <div class="subcat-selected-display" id="subcatDisplay">
+          <span id="subcatDisplayIcon" style="font-size:18px;"></span>
+          <span>Selected: <strong id="subcatDisplayName"></strong></span>
+          <span style="font-size:11px;color:var(--text-3);">→ Category: <strong id="subcatDisplayParent"></strong></span>
+          <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="clearSubcat()">✕ Clear</button>
+        </div>
+
+        <!-- Hidden fields -->
         <input type="hidden" id="selectedCategory" />
+        <input type="hidden" id="selectedSubCategory" />
 
         <hr class="divider" />
 
-        <!-- Section: Hours -->
+        <!-- Hours -->
         <div class="card-title">⏱️ Hours Spent <span class="req">*</span></div>
         <div class="form-group">
           <input type="number" id="hoursSpent" class="form-control" min="0.25" max="24" step="0.25" placeholder="0.00" style="max-width:160px;" />
@@ -123,12 +175,12 @@
 
         <hr class="divider" />
 
-        <!-- Section: Accomplishment & Notes -->
+        <!-- Accomplishments -->
         <div class="card-title">🏆 Accomplishments & Notes</div>
         <div class="form-group">
           <label class="form-label">Key Accomplishment</label>
           <input type="text" id="accomplishment" class="form-control" placeholder="Major task/project contribution completed today…" />
-          <div class="form-hint">What did you achieve? This feeds your performance dashboard.</div>
+          <div class="form-hint">Fill this on your last log entry for this task today.</div>
         </div>
         <div class="form-group">
           <label class="form-label">Comments / Notes</label>
@@ -145,7 +197,7 @@
         </div>
       </div>
 
-      <!-- Logs added today -->
+      <!-- Today's Logs -->
       <div class="card" style="margin-top:20px;">
         <div class="card-title-lg">📋 Today's Logs</div>
         <div id="todayLogs">
@@ -161,147 +213,210 @@
 <script src="js/auth.js"></script>
 <script src="js/utils.js"></script>
 <script>
-  const session = requireAuth();
-  let selectedCat = '';
+const session = requireAuth();
+let projectSubcats = [];
 
-  function init() {
-    renderSidebar('log');
-    loadSidebarStats(session.id);
-    document.getElementById('menuToggle').addEventListener('click', () => {
-      document.getElementById('app-sidebar').classList.toggle('open');
-    });
+async function init() {
+  renderSidebar('log');
+  loadSidebarStats(session.id);
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    document.getElementById('app-sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+  });
+  prefill();
+  document.getElementById('logDate').addEventListener('change', onDateChange);
+  await loadProjectSubcats();
+  buildSubcatCards();
+  loadTodayLogs();
+}
+
+// ── Prefill ────────────────────────────────────────────────
+function prefill() {
+  const today = getTodayInfo();
+  document.getElementById('teamMember').value = session.fullName;
+  document.getElementById('logDate').value    = today.date;
+  document.getElementById('logMonth').value   = today.month;
+  document.getElementById('logWeek').value    = today.week;
+}
+
+function onDateChange() {
+  const d = document.getElementById('logDate').value;
+  if (d) {
+    document.getElementById('logMonth').value = getMonthName(d);
+    document.getElementById('logWeek').value  = getWeekNumber(d);
+  }
+}
+
+// ── Load project sub-cats from DB ──────────────────────────
+async function loadProjectSubcats() {
+  const { data } = await db.from('project_subcategories').select('name').order('sort_order').order('name');
+  projectSubcats = (data || []).map(r => r.name);
+}
+
+// ── Build subcategory card grid ────────────────────────────
+function buildSubcatCards() {
+  // Support cards
+  const supContainer = document.getElementById('supportCards');
+  supContainer.innerHTML = FIXED_SUBCATEGORIES.Support.map(sc =>
+    `<div class="subcat-card" id="sc-${sc.name.replace(/\s+/g,'-')}" onclick="selectSubcat('${sc.name}','Support')">
+      <span>${sc.icon}</span>${sc.name}
+    </div>`
+  ).join('');
+
+  // Testing cards
+  const tstContainer = document.getElementById('testingCards');
+  tstContainer.innerHTML = FIXED_SUBCATEGORIES.Testing.map(sc =>
+    `<div class="subcat-card" id="sc-${sc.name.replace(/\s+/g,'-')}" onclick="selectSubcat('${sc.name}','Testing')">
+      <span>${sc.icon}</span>${sc.name}
+    </div>`
+  ).join('');
+
+  // Project cards
+  const prjContainer = document.getElementById('projectCards');
+  if (!projectSubcats.length) {
+    prjContainer.innerHTML = `<div style="font-size:12px;color:var(--text-3);">No project sub-categories defined yet. Ask your admin to add them in the Admin Panel → Settings.</div>`;
+    return;
+  }
+  prjContainer.innerHTML = projectSubcats.map(name =>
+    `<div class="subcat-card" id="sc-${name.replace(/\s+/g,'-')}" onclick="selectSubcat('${name}','Project')">
+      <span>🚀</span>${name}
+    </div>`
+  ).join('');
+}
+
+// ── Sub-category selection ─────────────────────────────────
+function selectSubcat(name, parent) {
+  // Clear all selections
+  document.querySelectorAll('.subcat-card').forEach(c => {
+    c.className = 'subcat-card';
+  });
+  // Highlight selected
+  const el = document.getElementById('sc-' + name.replace(/\s+/g,'-'));
+  if (el) el.classList.add('selected-' + parent);
+
+  // Set hidden inputs
+  document.getElementById('selectedCategory').value    = parent;
+  document.getElementById('selectedSubCategory').value = name;
+
+  // Show display
+  const icons = { Support:'🛡️', Testing:'🧪', Project:'🚀' };
+  document.getElementById('subcatDisplayIcon').textContent  = icons[parent];
+  document.getElementById('subcatDisplayName').textContent  = name;
+  document.getElementById('subcatDisplayParent').textContent = parent;
+  document.getElementById('subcatDisplay').classList.add('show');
+}
+
+function clearSubcat() {
+  document.querySelectorAll('.subcat-card').forEach(c => c.className = 'subcat-card');
+  document.getElementById('selectedCategory').value    = '';
+  document.getElementById('selectedSubCategory').value = '';
+  document.getElementById('subcatDisplay').classList.remove('show');
+}
+
+function setHours(h) { document.getElementById('hoursSpent').value = h; }
+
+// ── Reset form ─────────────────────────────────────────────
+function resetForm() {
+  document.getElementById('taskProject').value    = '';
+  document.getElementById('taskDesc').value       = '';
+  document.getElementById('hoursSpent').value     = '';
+  document.getElementById('accomplishment').value = '';
+  document.getElementById('commentsNotes').value  = '';
+  clearSubcat();
+  document.getElementById('formError').classList.remove('show');
+}
+
+// ── Submit log ─────────────────────────────────────────────
+async function submitLog() {
+  const btn   = document.getElementById('submitBtn');
+  const errEl = document.getElementById('formError');
+  errEl.classList.remove('show');
+
+  const payload = {
+    user_id:          session.id,
+    team_member:      document.getElementById('teamMember').value.trim(),
+    log_date:         document.getElementById('logDate').value,
+    month:            document.getElementById('logMonth').value,
+    week_number:      parseInt(document.getElementById('logWeek').value) || getWeekNumber(new Date()),
+    task_project:     document.getElementById('taskProject').value.trim(),
+    task_description: document.getElementById('taskDesc').value.trim(),
+    category:         document.getElementById('selectedCategory').value,
+    sub_category:     document.getElementById('selectedSubCategory').value,
+    hours_spent:      parseFloat(document.getElementById('hoursSpent').value),
+    accomplishment:   document.getElementById('accomplishment').value.trim(),
+    comments_notes:   document.getElementById('commentsNotes').value.trim(),
+  };
+
+  // Validate
+  const errors = [];
+  if (!payload.task_project)                                   errors.push('Task / Project name is required');
+  if (!payload.sub_category)                                   errors.push('Please select a sub-category');
+  if (!payload.hours_spent || isNaN(payload.hours_spent) || payload.hours_spent <= 0) errors.push('Hours must be a positive number');
+  if (payload.hours_spent > 24)                                errors.push('Hours cannot exceed 24');
+
+  if (errors.length) {
+    errEl.textContent = errors.join(' · ');
+    errEl.classList.add('show');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Submitting…';
+
+  const { error } = await db.from('task_logs').insert(payload);
+
+  if (error) {
+    errEl.textContent = 'Failed to submit: ' + error.message;
+    errEl.classList.add('show');
+    btn.disabled = false;
+    btn.innerHTML = '<span>⚔️</span> Submit Task Log';
+  } else {
+    showToast('Task logged! ⚔️', 'success');
+    resetForm();
     prefill();
-    document.getElementById('logDate').addEventListener('change', onDateChange);
     loadTodayLogs();
+    loadSidebarStats(session.id);
+    btn.disabled = false;
+    btn.innerHTML = '<span>⚔️</span> Submit Task Log';
+  }
+}
+
+// ── Today's logs ───────────────────────────────────────────
+async function loadTodayLogs() {
+  const today = getTodayInfo();
+  const { data } = await db
+    .from('task_logs')
+    .select('*')
+    .eq('user_id', session.id)
+    .eq('log_date', today.date)
+    .order('created_at', { ascending: false });
+
+  const container = document.getElementById('todayLogs');
+  if (!data || !data.length) {
+    container.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="empty-icon">📭</div><div class="empty-text">No logs yet today</div><div class="empty-sub">Submit your first task above</div></div>`;
+    return;
   }
 
-  function prefill() {
-    const today = getTodayInfo();
-    document.getElementById('teamMember').value = session.fullName;
-    document.getElementById('logDate').value    = today.date;
-    document.getElementById('logMonth').value   = today.month;
-    document.getElementById('logWeek').value    = today.week;
-  }
+  const total = data.reduce((s, l) => s + parseFloat(l.hours_spent || 0), 0);
+  container.innerHTML = `
+    <div style="margin-bottom:12px;padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between;">
+      <span><strong>${data.length}</strong> task${data.length>1?'s':''} logged today</span>
+      <span><strong>${total.toFixed(1)}h</strong> total</span>
+    </div>
+    <div class="table-wrapper">
+      <table><thead><tr><th>Task</th><th>Sub-Category</th><th>Hours</th><th>Accomplishment</th></tr></thead>
+      <tbody>
+        ${data.map(l => `<tr>
+          <td>${truncate(l.task_project, 40)}</td>
+          <td>${categoryBadge(l.category)}<span style="font-size:11px;color:var(--text-3);margin-left:6px;">${l.sub_category||''}</span></td>
+          <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
+          <td class="td-muted td-sm">${truncate(l.accomplishment, 50)}</td>
+        </tr>`).join('')}
+      </tbody></table>
+    </div>`;
+}
 
-  function onDateChange() {
-    const d = document.getElementById('logDate').value;
-    if (d) {
-      document.getElementById('logMonth').value = getMonthName(d);
-      document.getElementById('logWeek').value  = getWeekNumber(d);
-    }
-  }
-
-  function selectCat(cat) {
-    selectedCat = cat;
-    document.getElementById('selectedCategory').value = cat;
-    document.getElementById('catSupport').className = 'cat-select-card' + (cat==='Support' ? ' selected-support' : '');
-    document.getElementById('catTesting').className = 'cat-select-card' + (cat==='Testing' ? ' selected-testing' : '');
-    document.getElementById('catProject').className = 'cat-select-card' + (cat==='Project' ? ' selected-project' : '');
-  }
-
-  function setHours(h) {
-    document.getElementById('hoursSpent').value = h;
-  }
-
-  function resetForm() {
-    document.getElementById('taskProject').value    = '';
-    document.getElementById('taskDesc').value       = '';
-    document.getElementById('hoursSpent').value     = '';
-    document.getElementById('accomplishment').value = '';
-    document.getElementById('commentsNotes').value  = '';
-    selectedCat = '';
-    selectCat('');
-    document.getElementById('formError').classList.remove('show');
-  }
-
-  async function submitLog() {
-    const btn = document.getElementById('submitBtn');
-    const errEl = document.getElementById('formError');
-    errEl.classList.remove('show');
-
-    const payload = {
-      user_id:          session.id,
-      team_member:      document.getElementById('teamMember').value.trim(),
-      log_date:         document.getElementById('logDate').value,
-      month:            document.getElementById('logMonth').value,
-      week_number:      parseInt(document.getElementById('logWeek').value) || getWeekNumber(new Date()),
-      task_project:     document.getElementById('taskProject').value.trim(),
-      task_description: document.getElementById('taskDesc').value.trim(),
-      category:         selectedCat,
-      hours_spent:      parseFloat(document.getElementById('hoursSpent').value),
-      accomplishment:   document.getElementById('accomplishment').value.trim(),
-      comments_notes:   document.getElementById('commentsNotes').value.trim(),
-    };
-
-    // Validate
-    const errors = [];
-    if (!payload.task_project) errors.push('Task / Project name is required');
-    if (!payload.category)     errors.push('Please select a category');
-    if (!payload.hours_spent || isNaN(payload.hours_spent) || payload.hours_spent <= 0) errors.push('Hours must be a positive number');
-    if (payload.hours_spent > 24) errors.push('Hours cannot exceed 24');
-
-    if (errors.length) {
-      errEl.textContent = errors.join(' · ');
-      errEl.classList.add('show');
-      return;
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Submitting…';
-
-    const { error } = await db.from('task_logs').insert(payload);
-
-    if (error) {
-      errEl.textContent = 'Failed to submit: ' + error.message;
-      errEl.classList.add('show');
-      btn.disabled = false;
-      btn.innerHTML = '<span>⚔️</span> Submit Task Log';
-    } else {
-      showToast('Task logged successfully! ⚔️', 'success');
-      resetForm();
-      prefill();
-      loadTodayLogs();
-      loadSidebarStats(session.id);
-      btn.disabled = false;
-      btn.innerHTML = '<span>⚔️</span> Submit Task Log';
-    }
-  }
-
-  async function loadTodayLogs() {
-    const today = getTodayInfo();
-    const { data } = await db
-      .from('task_logs')
-      .select('*')
-      .eq('user_id', session.id)
-      .eq('log_date', today.date)
-      .order('created_at', { ascending: false });
-
-    const container = document.getElementById('todayLogs');
-    if (!data || !data.length) {
-      container.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="empty-icon">📭</div><div class="empty-text">No logs yet today</div><div class="empty-sub">Submit your first task above</div></div>`;
-      return;
-    }
-
-    const total = data.reduce((s, l) => s + parseFloat(l.hours_spent || 0), 0);
-    container.innerHTML = `
-      <div style="margin-bottom:12px;padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between;">
-        <span><strong>${data.length}</strong> task${data.length>1?'s':''} logged today</span>
-        <span><strong>${total.toFixed(1)}h</strong> total</span>
-      </div>
-      <div class="table-wrapper">
-        <table><thead><tr><th>Task</th><th>Category</th><th>Hours</th><th>Accomplishment</th></tr></thead>
-        <tbody>
-          ${data.map(l => `<tr>
-            <td>${truncate(l.task_project, 40)}</td>
-            <td>${categoryBadge(l.category)}</td>
-            <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
-            <td class="td-muted td-sm">${truncate(l.accomplishment, 50)}</td>
-          </tr>`).join('')}
-        </tbody></table>
-      </div>`;
-  }
-
-  init();
+init();
 </script>
 </body>
 </html>
