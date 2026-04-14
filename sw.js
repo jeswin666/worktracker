@@ -1,18 +1,18 @@
 const CACHE = 'ebs-tracker-v1';
 const ASSETS = [
-  '/index.html',
-  '/dashboard.html',
-  '/log.html',
-  '/performance.html',
-  '/admin.html',
-  '/tasks.html',
-  '/css/style.css',
-  '/js/config.js',
-  '/js/auth.js',
-  '/js/utils.js',
-  '/logo.png',
-  '/icon-192.png',
-  '/icon-512.png',
+  '/worktracker/index.html',
+  '/worktracker/dashboard.html',
+  '/worktracker/log.html',
+  '/worktracker/performance.html',
+  '/worktracker/admin.html',
+  '/worktracker/tasks.html',
+  '/worktracker/css/style.css',
+  '/worktracker/js/config.js',
+  '/worktracker/js/auth.js',
+  '/worktracker/js/utils.js',
+  '/worktracker/logo.png',
+  '/worktracker/icon-192.png',
+  '/worktracker/icon-512.png',
 ];
 
 self.addEventListener('install', e => {
