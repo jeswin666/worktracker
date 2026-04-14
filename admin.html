@@ -595,7 +595,10 @@ function switchTab(name) {
   const idx = TAB_ORDER.indexOf(name);
   if (idx >= 0) document.querySelectorAll('.admin-tab')[idx].classList.add('active');
   if (name === 'settings')  loadSettingsTab();
-  if (name === 'comparison') renderComparison();
+  if (name === 'comparison') {
+    // Reload logs to get latest is_completed values
+    loadAllLogs().then(() => renderComparison());
+  }
   if (name === 'analysis')   initAnalysisTab();
   if (name === 'export')     initExportTab();
 }
