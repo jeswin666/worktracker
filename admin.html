@@ -295,16 +295,29 @@
       <!-- War Days + Tracker Config -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
         <div class="card">
-          <div class="card-title-lg">⚠️ War Days Off</div>
-          <p style="color:var(--text-2);font-size:13px;margin-bottom:16px;">Days the whole team was off due to war — subtracted from everyone's expected hours.</p>
-          <div style="display:flex;align-items:flex-end;gap:12px;">
-            <div class="form-group mb-0" style="flex:1;">
-              <label class="form-label">Number of Days</label>
-              <input type="number" id="warDaysInput" class="form-control" min="0" max="365" step="1" placeholder="0" />
+          <div class="card-title-lg">⚠️ War / Conflict Days Off</div>
+          <p style="color:var(--text-2);font-size:13px;margin-bottom:16px;line-height:1.5;">
+            Add specific dates or date ranges when the whole team was off due to war or conflict.
+            These are excluded from <strong>everyone's</strong> working day count and expected hours.
+          </p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1.5fr auto;gap:12px;align-items:end;margin-bottom:16px;flex-wrap:wrap;">
+            <div>
+              <label class="form-label">From</label>
+              <input type="date" id="warRangeStart" class="form-control" />
             </div>
-            <button class="btn btn-primary" id="saveWarDaysBtn" onclick="saveWarDays()">💾 Save</button>
+            <div>
+              <label class="form-label">To</label>
+              <input type="date" id="warRangeEnd" class="form-control" />
+            </div>
+            <div>
+              <label class="form-label">Label (optional)</label>
+              <input type="text" id="warRangeLabel" class="form-control" placeholder="e.g. Operation X, April Conflict" />
+            </div>
+            <button class="btn btn-primary" onclick="addWarRange()" style="margin-top:auto;white-space:nowrap;">➕ Add</button>
           </div>
-          <div id="warDaysCurrent" style="margin-top:12px;padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);font-size:13px;color:var(--text-2);">Loading…</div>
+          <div id="warRangeList" style="display:flex;flex-direction:column;gap:8px;">
+            <div class="loading"><div class="spinner"></div> Loading…</div>
+          </div>
         </div>
         <div class="card">
           <div class="card-title-lg">📅 Tracker Config</div>
@@ -665,16 +678,7 @@ function switchTab(name) {
 
 // ── Settings Tab ───────────────────────────────────────────
 async function loadSettingsTab() {
-  const { data } = await db.from('app_settings').select('value,updated_at').eq('key','war_days_off').maybeSingle();
-  const current = parseInt(data?.value || '0') || 0;
-  document.getElementById('warDaysInput').value = current;
-  const curEl = document.getElementById('warDaysCurrent');
-  if (current === 0) {
-    curEl.innerHTML = `<span style="color:var(--success)">✅ Currently: <strong>0 war days</strong> — no deduction applied</span>`;
-  } else {
-    const updated = data?.updated_at ? `(last updated ${formatDate(data.updated_at)})` : '';
-    curEl.innerHTML = `<span style="color:var(--warning)">⚠️ Currently: <strong>${current} war day${current!==1?'s':''} off</strong> ${updated}</span>`;
-  }
+  loadWarRangeList();
   const listEl = document.getElementById('holidayList');
   if (listEl) {
     listEl.innerHTML = KUWAIT_HOLIDAYS_2026.map(d => {
@@ -928,13 +932,13 @@ async function loadEmployeeAnalysis() {
   const [logsRes, leavesRes, warRes] = await Promise.all([
     db.from('task_logs').select('*').eq('user_id', uid).order('log_date', { ascending: true }),
     db.from('employee_leaves').select('start_date,end_date').eq('user_id', uid),
-    db.from('app_settings').select('value').eq('key','war_days_off').maybeSingle(),
+    db.from('war_day_ranges').select('start_date,end_date').order('start_date'),
   ]);
 
   const logs      = logsRes.data || [];
   const leaves    = leavesRes.data || [];
-  const warDays   = parseInt(warRes.data?.value || '0') || 0;
-  const wt        = getWorkingDaysInfo(warDays, leaves);
+  const warRanges = warRes.data || [];
+  const wt        = getWorkingDaysInfo(0, leaves, warRanges);
   const stats     = calculateStats(logs);
   const level     = getUserLevel(stats.totalHours);
   const xp        = getXPProgress(stats.totalHours);
@@ -1219,13 +1223,13 @@ async function loadEmployeeAnalysis() {
   const [logsRes, leavesRes, warRes] = await Promise.all([
     db.from('task_logs').select('*').eq('user_id', uid).order('log_date', { ascending: true }),
     db.from('employee_leaves').select('start_date,end_date').eq('user_id', uid),
-    db.from('app_settings').select('value').eq('key','war_days_off').maybeSingle(),
+    db.from('war_day_ranges').select('start_date,end_date').order('start_date'),
   ]);
 
   const logs      = logsRes.data || [];
   const leaves    = leavesRes.data || [];
-  const warDays   = parseInt(warRes.data?.value || '0') || 0;
-  const wt        = getWorkingDaysInfo(warDays, leaves);
+  const warRanges = warRes.data || [];
+  const wt        = getWorkingDaysInfo(0, leaves, warRanges);
   const stats     = calculateStats(logs);
   const level     = getUserLevel(stats.totalHours);
   const xp        = getXPProgress(stats.totalHours);
@@ -1801,9 +1805,8 @@ function renderComparison() {
   }
   document.getElementById('compPeriodLabel').textContent = filtered.length + ' logs · ' + periodLabel;
 
-  db.from('app_settings').select('value').eq('key','war_days_off').maybeSingle().then(({data}) => {
-    const warDays = parseInt(data?.value || '0') || 0;
-    const wt = getWorkingDaysInfo(warDays);
+  db.from('war_day_ranges').select('start_date,end_date').order('start_date').then(({data: warRanges}) => {
+    const wt = getWorkingDaysInfo(0, [], warRanges || []);
     const COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
 
     const userStats = allUsers.map((u, i) => {
@@ -2231,13 +2234,13 @@ async function loadEmployeeAnalysis() {
   const [logsRes, leavesRes, warRes] = await Promise.all([
     db.from('task_logs').select('*').eq('user_id', uid).order('log_date', { ascending: true }),
     db.from('employee_leaves').select('start_date,end_date').eq('user_id', uid),
-    db.from('app_settings').select('value').eq('key','war_days_off').maybeSingle(),
+    db.from('war_day_ranges').select('start_date,end_date').order('start_date'),
   ]);
 
   const logs      = logsRes.data || [];
   const leaves    = leavesRes.data || [];
-  const warDays   = parseInt(warRes.data?.value || '0') || 0;
-  const wt        = getWorkingDaysInfo(warDays, leaves);
+  const warRanges = warRes.data || [];
+  const wt        = getWorkingDaysInfo(0, leaves, warRanges);
   const stats     = calculateStats(logs);
   const level     = getUserLevel(stats.totalHours);
   const xp        = getXPProgress(stats.totalHours);
