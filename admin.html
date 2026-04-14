@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WorkTracker — Admin Panel</title>
+  <title>EBS Tracker — Admin Panel</title>
   <link rel="stylesheet" href="css/style.css" />
   <style>
     .user-card {
@@ -20,6 +20,7 @@
   </style>
 </head>
 <body>
+<script>document.addEventListener("DOMContentLoaded",()=>{if(typeof initTheme==="function"){initTheme();injectThemeToggle();}});</script>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <div class="app-wrapper">
   <button class="menu-toggle" id="menuToggle">☰</button>
@@ -293,10 +294,33 @@
         <div class="card">
           <div class="card-title-lg">📅 Tracker Config</div>
           <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
-            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);"><span style="color:var(--text-3);">Start Date</span><strong>March 3, 2026</strong></div>
-            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);"><span style="color:var(--text-3);">Weekends</span><strong>Fri &amp; Sat</strong></div>
-            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);"><span style="color:var(--text-3);">Ramadan</span><strong style="color:#d8b4fe;">Feb 18 – Mar 20 (6h)</strong></div>
-            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);"><span style="color:var(--text-3);">Normal Hours</span><strong>8h/day</strong></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);">
+              <span style="color:var(--text-3);">Start Date</span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="date" id="trackerStartInput" class="form-control" style="width:150px;padding:4px 8px;font-size:12px;" />
+                <button class="btn btn-primary btn-sm" onclick="saveTrackerStart()">Save</button>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);"><span style="color:var(--text-3);">Weekends</span><strong>Fri &amp; Sat (fixed)</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);"><span style="color:var(--text-3);">Ramadan</span><strong style="color:#d8b4fe;">Feb 18–Mar 20, 6h (fixed)</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);"><span style="color:var(--text-3);">Normal Hours</span><strong>8h/day (fixed)</strong></div>
+          </div>
+          <div style="margin-top:8px;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);">
+            <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Category Labels</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="font-size:10px;color:var(--text-3);">Support label</label>
+                <div style="display:flex;gap:4px;"><input type="text" id="catLabelSupport" class="form-control" style="font-size:12px;padding:4px 8px;" /><button class="btn btn-primary btn-sm" onclick="saveCatLabel('support')">✓</button></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="font-size:10px;color:var(--text-3);">Testing label</label>
+                <div style="display:flex;gap:4px;"><input type="text" id="catLabelTesting" class="form-control" style="font-size:12px;padding:4px 8px;" /><button class="btn btn-primary btn-sm" onclick="saveCatLabel('testing')">✓</button></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="font-size:10px;color:var(--text-3);">Project label</label>
+                <div style="display:flex;gap:4px;"><input type="text" id="catLabelProject" class="form-control" style="font-size:12px;padding:4px 8px;" /><button class="btn btn-primary btn-sm" onclick="saveCatLabel('project')">✓</button></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -537,6 +561,7 @@ const session = requireAdmin();
 let allUsers = [], allLogs = [], selectedUserId = null, adminEditId = null;
 
 async function init() {
+  initTheme(); injectThemeToggle();
   renderSidebar('admin');
   loadSidebarStats(session.id);
   document.getElementById('menuToggle').addEventListener('click', () => {
@@ -602,6 +627,36 @@ async function loadSettingsTab() {
   loadSubcatList('project');
   populateLeaveUserSelect();
   loadLeaveList();
+
+  // Load tracker start date
+  const startRes = await db.from('app_settings').select('value').eq('key','tracker_start_date').maybeSingle();
+  if (startRes.data) document.getElementById('trackerStartInput').value = startRes.data.value;
+
+  // Load category labels
+  const catRes = await db.from('app_settings').select('key,value').in('key',['category_name_support','category_name_testing','category_name_project']);
+  (catRes.data||[]).forEach(r => {
+    const map = { category_name_support:'catLabelSupport', category_name_testing:'catLabelTesting', category_name_project:'catLabelProject' };
+    const el = document.getElementById(map[r.key]);
+    if (el) el.value = r.value;
+  });
+}
+
+async function saveTrackerStart() {
+  const val = document.getElementById('trackerStartInput').value;
+  if (!val) { showToast('Pick a date first','warning'); return; }
+  const { error } = await db.from('app_settings').upsert({ key:'tracker_start_date', value:val, label:'Tracker Start Date', updated_by: session.id }, { onConflict:'key' });
+  if (error) showToast('Failed: '+error.message,'error');
+  else showToast('Tracker start date saved! Reload pages to see updated counts.','success');
+}
+
+async function saveCatLabel(cat) {
+  const fieldMap = { support:'catLabelSupport', testing:'catLabelTesting', project:'catLabelProject' };
+  const keyMap   = { support:'category_name_support', testing:'category_name_testing', project:'category_name_project' };
+  const val = document.getElementById(fieldMap[cat])?.value.trim();
+  if (!val) { showToast('Label cannot be empty','warning'); return; }
+  const { error } = await db.from('app_settings').upsert({ key:keyMap[cat], value:val, label:cat+' Category Label', updated_by:session.id }, { onConflict:'key' });
+  if (error) showToast('Failed: '+error.message,'error');
+  else showToast(`"${val}" saved as ${cat} label!`,'success');
 }
 
 // ── Generic Sub-category Management ────────────────────────
@@ -871,6 +926,7 @@ async function loadEmployeeAnalysis() {
       <div class="kpi-card accent-blue"><span class="kpi-icon">📅</span><div class="kpi-label">Days Active</div><div class="kpi-value">${stats.uniqueDays}</div><div class="kpi-sub">of ${wt.workingDays} working days</div></div>
       <div class="kpi-card accent-green"><span class="kpi-icon">🎯</span><div class="kpi-label">Hours Completion</div><div class="kpi-value">${hoursPct}%</div><div class="kpi-sub">${stats.totalHours}h / ${wt.expectedHours}h</div></div>
       <div class="kpi-card accent-red"><span class="kpi-icon">⚡</span><div class="kpi-label">Peak Day</div><div class="kpi-value">${stats.maxDayHours}h</div><div class="kpi-sub">${daysEq}d equivalent</div></div>
+      <div class="kpi-card accent-green"><span class="kpi-icon">✅</span><div class="kpi-label">Completed Tasks</div><div class="kpi-value">${getCompletedCount(logs)}</div><div class="kpi-sub">Marked as completed</div></div>
     </div>
 
     <!-- Team comparison bars -->
@@ -933,7 +989,57 @@ async function loadEmployeeAnalysis() {
     if (wCtx) new Chart(wCtx,{type:'line',data:{labels:weekData.map(w=>w.label),datasets:[{label:'Hours',data:weekData.map(w=>Math.round(w.hours*10)/10),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',fill:true,tension:.4,pointBackgroundColor:'#6366f1',pointRadius:4,borderWidth:2}]},options:base});
 
     const cCtx = document.getElementById('analysisCatChart');
-    if (cCtx && stats.totalTasks>0) new Chart(cCtx,{type:'doughnut',data:{labels:['Support','Testing','Project'],datasets:[{data:[stats.supportCount,stats.testingCount,stats.projectCount],backgroundColor:['rgba(59,130,246,.8)','rgba(139,92,246,.8)','rgba(16,185,129,.8)'],borderColor:['#3b82f6','#8b5cf6','#10b981'],borderWidth:2,hoverOffset:6}]},options:{...base,cutout:'65%',scales:{},plugins:{...base.plugins,legend:{...base.plugins.legend,position:'bottom'}}}});
+    if (cCtx && stats.totalTasks>0) {
+      const catNames = ['Support','Testing','Project'];
+      new Chart(cCtx, {
+        type:'doughnut',
+        data:{
+          labels: catNames,
+          datasets:[{data:[stats.supportCount,stats.testingCount,stats.projectCount],
+            backgroundColor:['rgba(59,130,246,.8)','rgba(139,92,246,.8)','rgba(16,185,129,.8)'],
+            borderColor:['#3b82f6','#8b5cf6','#10b981'],borderWidth:2,hoverOffset:6}]
+        },
+        options:{
+          ...base, cutout:'65%', scales:{},
+          plugins:{...base.plugins,legend:{...base.plugins.legend,position:'bottom'},
+            tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw} tasks`}}
+          },
+          onClick:(evt,elements)=>{
+            if (!elements.length) return;
+            const cat = catNames[elements[0].index];
+            const catLogs = logs.filter(l=>l.category===cat);
+            // Render drill-down table
+            let drillEl = document.getElementById('analysisCatDrill');
+            if (!drillEl) {
+              drillEl = document.createElement('div');
+              drillEl.id = 'analysisCatDrill';
+              drillEl.style.marginTop = '16px';
+              cCtx.closest('.chart-card').appendChild(drillEl);
+            }
+            if (!catLogs.length) { drillEl.innerHTML=`<div style="font-size:12px;color:var(--text-3);padding:8px;">No ${cat} logs.</div>`; return; }
+            drillEl.innerHTML = `
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-size:12px;font-weight:700;">${cat} — ${catLogs.length} entries, ${catLogs.reduce((s,l)=>s+parseFloat(l.hours_spent||0),0).toFixed(1)}h</span>
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('analysisCatDrill').innerHTML=''">✕</button>
+              </div>
+              <div class="table-wrapper">
+                <table><thead><tr><th>Date</th><th>Task</th><th>Sub-Cat</th><th>Hours</th><th>Done</th></tr></thead>
+                <tbody>
+                  ${catLogs.sort((a,b)=>b.log_date.localeCompare(a.log_date)).map(l=>`
+                    <tr>
+                      <td class="td-sm">${formatDate(l.log_date)}</td>
+                      <td>${truncate(l.task_project,35)}</td>
+                      <td style="font-size:11px;color:var(--text-3);">${l.sub_category||'—'}</td>
+                      <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
+                      <td>${l.is_completed?'<span class="completed-badge">✅</span>':'—'}</td>
+                    </tr>`).join('')}
+                </tbody></table>
+              </div>`;
+            drillEl.scrollIntoView({behavior:'smooth',block:'nearest'});
+          }
+        }
+      });
+    }
   });
 }
 
@@ -1110,6 +1216,7 @@ async function loadEmployeeAnalysis() {
       <div class="kpi-card accent-blue"><span class="kpi-icon">📅</span><div class="kpi-label">Days Active</div><div class="kpi-value">${stats.uniqueDays}</div><div class="kpi-sub">of ${wt.workingDays} working days</div></div>
       <div class="kpi-card accent-green"><span class="kpi-icon">🎯</span><div class="kpi-label">Hours Completion</div><div class="kpi-value">${hoursPct}%</div><div class="kpi-sub">${stats.totalHours}h / ${wt.expectedHours}h</div></div>
       <div class="kpi-card accent-red"><span class="kpi-icon">⚡</span><div class="kpi-label">Peak Day</div><div class="kpi-value">${stats.maxDayHours}h</div><div class="kpi-sub">${daysEq}d equivalent</div></div>
+      <div class="kpi-card accent-green"><span class="kpi-icon">✅</span><div class="kpi-label">Completed Tasks</div><div class="kpi-value">${getCompletedCount(logs)}</div><div class="kpi-sub">Marked as completed</div></div>
     </div>
 
     <!-- Team comparison bars -->
@@ -1172,7 +1279,57 @@ async function loadEmployeeAnalysis() {
     if (wCtx) new Chart(wCtx,{type:'line',data:{labels:weekData.map(w=>w.label),datasets:[{label:'Hours',data:weekData.map(w=>Math.round(w.hours*10)/10),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',fill:true,tension:.4,pointBackgroundColor:'#6366f1',pointRadius:4,borderWidth:2}]},options:base});
 
     const cCtx = document.getElementById('analysisCatChart');
-    if (cCtx && stats.totalTasks>0) new Chart(cCtx,{type:'doughnut',data:{labels:['Support','Testing','Project'],datasets:[{data:[stats.supportCount,stats.testingCount,stats.projectCount],backgroundColor:['rgba(59,130,246,.8)','rgba(139,92,246,.8)','rgba(16,185,129,.8)'],borderColor:['#3b82f6','#8b5cf6','#10b981'],borderWidth:2,hoverOffset:6}]},options:{...base,cutout:'65%',scales:{},plugins:{...base.plugins,legend:{...base.plugins.legend,position:'bottom'}}}});
+    if (cCtx && stats.totalTasks>0) {
+      const catNames = ['Support','Testing','Project'];
+      new Chart(cCtx, {
+        type:'doughnut',
+        data:{
+          labels: catNames,
+          datasets:[{data:[stats.supportCount,stats.testingCount,stats.projectCount],
+            backgroundColor:['rgba(59,130,246,.8)','rgba(139,92,246,.8)','rgba(16,185,129,.8)'],
+            borderColor:['#3b82f6','#8b5cf6','#10b981'],borderWidth:2,hoverOffset:6}]
+        },
+        options:{
+          ...base, cutout:'65%', scales:{},
+          plugins:{...base.plugins,legend:{...base.plugins.legend,position:'bottom'},
+            tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw} tasks`}}
+          },
+          onClick:(evt,elements)=>{
+            if (!elements.length) return;
+            const cat = catNames[elements[0].index];
+            const catLogs = logs.filter(l=>l.category===cat);
+            // Render drill-down table
+            let drillEl = document.getElementById('analysisCatDrill');
+            if (!drillEl) {
+              drillEl = document.createElement('div');
+              drillEl.id = 'analysisCatDrill';
+              drillEl.style.marginTop = '16px';
+              cCtx.closest('.chart-card').appendChild(drillEl);
+            }
+            if (!catLogs.length) { drillEl.innerHTML=`<div style="font-size:12px;color:var(--text-3);padding:8px;">No ${cat} logs.</div>`; return; }
+            drillEl.innerHTML = `
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-size:12px;font-weight:700;">${cat} — ${catLogs.length} entries, ${catLogs.reduce((s,l)=>s+parseFloat(l.hours_spent||0),0).toFixed(1)}h</span>
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('analysisCatDrill').innerHTML=''">✕</button>
+              </div>
+              <div class="table-wrapper">
+                <table><thead><tr><th>Date</th><th>Task</th><th>Sub-Cat</th><th>Hours</th><th>Done</th></tr></thead>
+                <tbody>
+                  ${catLogs.sort((a,b)=>b.log_date.localeCompare(a.log_date)).map(l=>`
+                    <tr>
+                      <td class="td-sm">${formatDate(l.log_date)}</td>
+                      <td>${truncate(l.task_project,35)}</td>
+                      <td style="font-size:11px;color:var(--text-3);">${l.sub_category||'—'}</td>
+                      <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
+                      <td>${l.is_completed?'<span class="completed-badge">✅</span>':'—'}</td>
+                    </tr>`).join('')}
+                </tbody></table>
+              </div>`;
+            drillEl.scrollIntoView({behavior:'smooth',block:'nearest'});
+          }
+        }
+      });
+    }
   });
 }
 
@@ -1960,6 +2117,7 @@ async function loadEmployeeAnalysis() {
       <div class="kpi-card accent-blue"><span class="kpi-icon">📅</span><div class="kpi-label">Days Active</div><div class="kpi-value">${stats.uniqueDays}</div><div class="kpi-sub">of ${wt.workingDays} working days</div></div>
       <div class="kpi-card accent-green"><span class="kpi-icon">🎯</span><div class="kpi-label">Hours Completion</div><div class="kpi-value">${hoursPct}%</div><div class="kpi-sub">${stats.totalHours}h / ${wt.expectedHours}h</div></div>
       <div class="kpi-card accent-red"><span class="kpi-icon">⚡</span><div class="kpi-label">Peak Day</div><div class="kpi-value">${stats.maxDayHours}h</div><div class="kpi-sub">${daysEq}d equivalent</div></div>
+      <div class="kpi-card accent-green"><span class="kpi-icon">✅</span><div class="kpi-label">Completed Tasks</div><div class="kpi-value">${getCompletedCount(logs)}</div><div class="kpi-sub">Marked as completed</div></div>
     </div>
 
     <!-- Team comparison bars -->
@@ -2022,7 +2180,57 @@ async function loadEmployeeAnalysis() {
     if (wCtx) new Chart(wCtx,{type:'line',data:{labels:weekData.map(w=>w.label),datasets:[{label:'Hours',data:weekData.map(w=>Math.round(w.hours*10)/10),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',fill:true,tension:.4,pointBackgroundColor:'#6366f1',pointRadius:4,borderWidth:2}]},options:base});
 
     const cCtx = document.getElementById('analysisCatChart');
-    if (cCtx && stats.totalTasks>0) new Chart(cCtx,{type:'doughnut',data:{labels:['Support','Testing','Project'],datasets:[{data:[stats.supportCount,stats.testingCount,stats.projectCount],backgroundColor:['rgba(59,130,246,.8)','rgba(139,92,246,.8)','rgba(16,185,129,.8)'],borderColor:['#3b82f6','#8b5cf6','#10b981'],borderWidth:2,hoverOffset:6}]},options:{...base,cutout:'65%',scales:{},plugins:{...base.plugins,legend:{...base.plugins.legend,position:'bottom'}}}});
+    if (cCtx && stats.totalTasks>0) {
+      const catNames = ['Support','Testing','Project'];
+      new Chart(cCtx, {
+        type:'doughnut',
+        data:{
+          labels: catNames,
+          datasets:[{data:[stats.supportCount,stats.testingCount,stats.projectCount],
+            backgroundColor:['rgba(59,130,246,.8)','rgba(139,92,246,.8)','rgba(16,185,129,.8)'],
+            borderColor:['#3b82f6','#8b5cf6','#10b981'],borderWidth:2,hoverOffset:6}]
+        },
+        options:{
+          ...base, cutout:'65%', scales:{},
+          plugins:{...base.plugins,legend:{...base.plugins.legend,position:'bottom'},
+            tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw} tasks`}}
+          },
+          onClick:(evt,elements)=>{
+            if (!elements.length) return;
+            const cat = catNames[elements[0].index];
+            const catLogs = logs.filter(l=>l.category===cat);
+            // Render drill-down table
+            let drillEl = document.getElementById('analysisCatDrill');
+            if (!drillEl) {
+              drillEl = document.createElement('div');
+              drillEl.id = 'analysisCatDrill';
+              drillEl.style.marginTop = '16px';
+              cCtx.closest('.chart-card').appendChild(drillEl);
+            }
+            if (!catLogs.length) { drillEl.innerHTML=`<div style="font-size:12px;color:var(--text-3);padding:8px;">No ${cat} logs.</div>`; return; }
+            drillEl.innerHTML = `
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-size:12px;font-weight:700;">${cat} — ${catLogs.length} entries, ${catLogs.reduce((s,l)=>s+parseFloat(l.hours_spent||0),0).toFixed(1)}h</span>
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('analysisCatDrill').innerHTML=''">✕</button>
+              </div>
+              <div class="table-wrapper">
+                <table><thead><tr><th>Date</th><th>Task</th><th>Sub-Cat</th><th>Hours</th><th>Done</th></tr></thead>
+                <tbody>
+                  ${catLogs.sort((a,b)=>b.log_date.localeCompare(a.log_date)).map(l=>`
+                    <tr>
+                      <td class="td-sm">${formatDate(l.log_date)}</td>
+                      <td>${truncate(l.task_project,35)}</td>
+                      <td style="font-size:11px;color:var(--text-3);">${l.sub_category||'—'}</td>
+                      <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
+                      <td>${l.is_completed?'<span class="completed-badge">✅</span>':'—'}</td>
+                    </tr>`).join('')}
+                </tbody></table>
+              </div>`;
+            drillEl.scrollIntoView({behavior:'smooth',block:'nearest'});
+          }
+        }
+      });
+    }
   });
 }
 
