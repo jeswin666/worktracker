@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WorkTracker — My Performance</title>
+  <title>EBS Tracker — My Performance</title>
   <link rel="stylesheet" href="css/style.css" />
   <style>
     /* ── Working Time Analysis section ───── */
@@ -86,6 +86,8 @@
   </style>
 </head>
 <body>
+<script>document.addEventListener("DOMContentLoaded",()=>{if(typeof initTheme==="function"){initTheme();injectThemeToggle();}});</script>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <div class="app-wrapper">
   <button class="menu-toggle" id="menuToggle">☰</button>
   <aside class="sidebar" id="app-sidebar"></aside>
@@ -107,10 +109,12 @@
 const session = requireAuth();
 
 async function init() {
+  initTheme(); injectThemeToggle();
   renderSidebar('performance');
   loadSidebarStats(session.id);
   document.getElementById('menuToggle').addEventListener('click', () => {
     document.getElementById('app-sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
   });
   await loadPerformance();
 }
@@ -309,6 +313,12 @@ async function loadPerformance() {
         <div class="kpi-label">Peak Day</div>
         <div class="kpi-value">${stats.maxDayHours.toFixed(1)}<span style="font-size:16px;font-weight:500;color:var(--text-2)">h</span></div>
         <div class="kpi-sub">Best single day hours</div>
+      </div>
+      <div class="kpi-card accent-green">
+        <span class="kpi-icon">✅</span>
+        <div class="kpi-label">Completed Tasks</div>
+        <div class="kpi-value">${getCompletedCount(logs)}</div>
+        <div class="kpi-sub">Standalone completions logged</div>
       </div>
     </div>
 
