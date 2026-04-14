@@ -2,7 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="EBS Tracker" />
+  <meta name="theme-color" content="#080d1a" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="apple-touch-startup-image" href="icon-512.png" />
   <title>EBS Tracker — My Tasks</title>
   <link rel="stylesheet" href="css/style.css" />
   <style>
@@ -197,6 +206,13 @@
     <div class="form-group">
       <label class="form-label">Key Accomplishment</label>
       <input type="text" id="logTaskAccomp" class="form-control" placeholder="What did you achieve?" />
+    </div>
+    <div class="form-group">
+      <label class="completed-check">
+        <input type="checkbox" id="logTaskCompleted" />
+        <span>✅ Mark this task as <strong>completed</strong></span>
+      </label>
+      <div class="form-hint">Check this on your final log entry for this task.</div>
     </div>
     <div id="logModalError" class="login-error" style="margin-bottom:12px;"></div>
     <div style="display:flex;gap:12px;justify-content:flex-end;">
@@ -543,6 +559,7 @@ function openLogModal(id, title) {
   document.getElementById('logTaskCategory').value    = '';
   document.getElementById('logTaskSubCategory').value = '';
   document.getElementById('logTaskAccomp').value      = '';
+  document.getElementById('logTaskCompleted').checked = false;
   document.getElementById('logModalError').classList.remove('show');
 
   // Populate subcategory dropdown
@@ -601,6 +618,7 @@ async function submitTaskLog() {
     hours_spent:      hours,
     accomplishment:   document.getElementById('logTaskAccomp').value.trim(),
     comments_notes:   '',
+    is_completed:     document.getElementById('logTaskCompleted').checked,
   });
 
   if (logErr) { err.textContent = logErr.message; err.classList.add('show'); btn.disabled=false; btn.innerHTML='💾 Save to Work Log'; return; }
@@ -697,5 +715,10 @@ document.getElementById('assignTaskModal')?.addEventListener('click', e => { if 
 
 init();
 </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    }
+  </script>
 </body>
 </html>
