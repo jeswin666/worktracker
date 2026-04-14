@@ -334,9 +334,18 @@ async function loadUsers() {
 }
 
 async function loadTasks() {
-  let query = db.from('priority_tasks').select('*, users(full_name)').eq('status','pending').order('due_date', { ascending: true, nullsFirst: false });
-  if (session.role !== 'admin') query = query.eq('user_id', session.id);
-  const { data } = await query;
+  let query = db.from('priority_tasks').select('*').eq('status','pending').order('created_at', { ascending: false });
+  if (session.role !== 'admin') {
+    // For non-admins: show own tasks only
+    query = query.eq('user_id', session.id);
+  }
+  const { data, error } = await query;
+  if (error) {
+    console.error('loadTasks error:', error);
+    showToast('Failed to load tasks: ' + error.message, 'error');
+    allTasks = [];
+    return;
+  }
   allTasks = data || [];
 }
 
