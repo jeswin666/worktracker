@@ -77,9 +77,9 @@
         <h1 class="page-title">➕ Log a Task</h1>
         <p class="page-subtitle">Record your work — all time fields are auto-filled</p>
       </div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-secondary" onclick="downloadTemplate()">⬇️ Download Template</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('bulkFileInput').click()">📤 Bulk Upload</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-success" onclick="downloadTemplate()">⬇️ Download Template</button>
+        <button class="btn btn-primary" onclick="document.getElementById('bulkFileInput').click()">📤 Bulk Upload Excel</button>
         <input type="file" id="bulkFileInput" accept=".xlsx,.xls" style="display:none;" onchange="handleBulkFile(event)" />
         <a href="dashboard.html" class="btn btn-secondary">← Dashboard</a>
       </div>
@@ -256,7 +256,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/utils.js"></script>
