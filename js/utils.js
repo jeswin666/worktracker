@@ -72,7 +72,7 @@ function getDailyHours(date) {
  * @param {Array}  userLeaves   - Array of {start_date, end_date} for this user
  * @returns {object}
  */
-function getWorkingDaysInfo(warDaysOff = 0, userLeaves = []) {
+function getWorkingDaysInfo(warDaysOff = 0, userLeaves = [], warDayRanges = []) {
   const start = new Date(TRACKER_START_DATE);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -116,16 +116,43 @@ function getWorkingDaysInfo(warDaysOff = 0, userLeaves = []) {
     cur.setDate(cur.getDate() + 1);
   }
 
-  const effectiveWar  = Math.min(Math.max(0, parseInt(warDaysOff) || 0), rawWorkingDays);
-  const workingDays   = rawWorkingDays - effectiveWar;
-  const expectedHours = Math.max(0, rawExpectedHours - effectiveWar * NORMAL_DAILY_HOURS);
+  // Build war day set from ranges
+  const warDateSet = new Set();
+  (warDayRanges || []).forEach(wr => {
+    const s = new Date(wr.start_date); s.setHours(0,0,0,0);
+    const e = new Date(wr.end_date);   e.setHours(0,0,0,0);
+    const cc = new Date(s);
+    while (cc <= e) {
+      // Only count as war day if it would have been a working day
+      if (!isWeekendDay(cc) && !isKuwaitHoliday(cc) && !leaveDateSet.has(toDateStr(cc))) {
+        warDateSet.add(toDateStr(cc));
+      }
+      cc.setDate(cc.getDate() + 1);
+    }
+  });
+
+  // Also support legacy warDaysOff number if no ranges provided
+  const effectiveWarDays = warDayRanges.length > 0 ? warDateSet.size
+    : Math.min(Math.max(0, parseInt(warDaysOff) || 0), rawWorkingDays);
+
+  let warHours = 0;
+  if (warDayRanges.length > 0) {
+    // Calculate actual hours lost (Ramadan vs normal)
+    warDateSet.forEach(ds => { warHours += getDailyHours(ds); });
+  } else {
+    warHours = effectiveWarDays * NORMAL_DAILY_HOURS;
+  }
+
+  const workingDays   = rawWorkingDays - effectiveWarDays;
+  const expectedHours = Math.max(0, rawExpectedHours - warHours);
 
   return {
     workingDays,
     rawWorkingDays,
     expectedHours:    Math.round(expectedHours * 10) / 10,
     rawExpectedHours: Math.round(rawExpectedHours * 10) / 10,
-    warDaysOff:       effectiveWar,
+    warDaysOff:       effectiveWarDays,
+    warHours:         Math.round(warHours * 10) / 10,
     leaveDays,
     leaveHours:       Math.round(leaveHours * 10) / 10,
     ramadanWorkingDays,
