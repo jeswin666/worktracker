@@ -710,6 +710,55 @@ async function loadSettingsTab() {
   });
 }
 
+async function addWarRange() {
+  const start = document.getElementById('warRangeStart').value;
+  const end   = document.getElementById('warRangeEnd').value || start;
+  const label = document.getElementById('warRangeLabel').value.trim() || 'War / Conflict';
+  if (!start) { showToast('Select a start date', 'warning'); return; }
+  if (end < start) { showToast('End date must be after start date', 'warning'); return; }
+  const { error } = await db.from('war_day_ranges').insert({ start_date: start, end_date: end, label });
+  if (error) showToast('Failed: ' + error.message, 'error');
+  else {
+    showToast('War date range added ✅', 'success');
+    document.getElementById('warRangeStart').value = '';
+    document.getElementById('warRangeEnd').value   = '';
+    document.getElementById('warRangeLabel').value = '';
+    loadWarRangeList();
+  }
+}
+
+async function loadWarRangeList() {
+  const el = document.getElementById('warRangeList');
+  if (!el) return;
+  const { data, error } = await db.from('war_day_ranges').select('*').order('start_date');
+  if (error) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--danger);">⚠️ Run add_v8_migration.sql in Supabase to enable this feature.</div>';
+    return;
+  }
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text-3);padding:8px;">No war day ranges added yet.</div>';
+    return;
+  }
+  el.innerHTML = data.map(r => {
+    const same = r.start_date === r.end_date;
+    const dateStr = same ? formatDate(r.start_date) : `${formatDate(r.start_date)} → ${formatDate(r.end_date)}`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);border-left:4px solid var(--danger);">
+      <div>
+        <div style="font-size:13px;font-weight:700;">⚠️ ${r.label}</div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:2px;">📅 ${dateStr}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteWarRange('${r.id}')">🗑️ Remove</button>
+    </div>`;
+  }).join('');
+}
+
+async function deleteWarRange(id) {
+  if (!confirm('Remove this war date range?')) return;
+  const { error } = await db.from('war_day_ranges').delete().eq('id', id);
+  if (error) showToast('Failed: ' + error.message, 'error');
+  else { showToast('War range removed', 'success'); loadWarRangeList(); }
+}
+
 async function saveTrackerStart() {
   const val = document.getElementById('trackerStartInput').value;
   if (!val) { showToast('Pick a date first','warning'); return; }
@@ -1805,8 +1854,8 @@ function renderComparison() {
   }
   document.getElementById('compPeriodLabel').textContent = filtered.length + ' logs · ' + periodLabel;
 
-  db.from('war_day_ranges').select('start_date,end_date').order('start_date').then(({data: warRanges}) => {
-    const wt = getWorkingDaysInfo(0, [], warRanges || []);
+  db.from('war_day_ranges').select('start_date,end_date').order('start_date').then(({data: warRanges, error: warErr}) => {
+    const wt = getWorkingDaysInfo(0, [], warErr ? [] : (warRanges || []));
     const COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
 
     const userStats = allUsers.map((u, i) => {
