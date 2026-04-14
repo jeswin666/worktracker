@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WorkTracker — Dashboard</title>
+  <title>EBS Tracker — Dashboard</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+<script>document.addEventListener("DOMContentLoaded",()=>{if(typeof initTheme==="function"){initTheme();injectThemeToggle();}});</script>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <div class="app-wrapper">
   <button class="menu-toggle" id="menuToggle">☰</button>
@@ -74,8 +75,8 @@
               <th>Task / Project</th>
               <th>Sub-Category</th>
               <th>Hours</th>
+              <th>Done</th>
               <th>Accomplishment</th>
-              <th>Notes</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -204,7 +205,18 @@
     renderTable();
   }
 
+  async function toggleCompleted(id, checked) {
+    const { error } = await db.from('task_logs').update({ is_completed: checked }).eq('id', id);
+    if (error) { showToast('Failed to update', 'error'); return; }
+    // Update local data
+    const log = allLogs.find(l => l.id === id);
+    if (log) log.is_completed = checked;
+    showToast(checked ? '✅ Marked completed' : 'Marked incomplete', 'success');
+    renderTable();
+  }
+
   async function init() {
+    initTheme(); injectThemeToggle();
     renderSidebar('dashboard');
     loadSidebarStats(session.id);
 
@@ -346,14 +358,19 @@
              <button class="btn btn-danger btn-sm btn-icon" title="Delete" onclick="openDeleteModal('${l.id}')">🗑️</button>
            </div>`
         : `<span style="font-size:11px;color:var(--text-3)">View only</span>`;
-      return `<tr>
+      const rowClass = l.is_completed ? 'row-completed' : '';
+      return `<tr class="${rowClass}">
         <td class="td-sm">${formatDate(l.log_date)}</td>
         <td><strong>${l.team_member || l.users?.full_name || '—'}</strong></td>
         <td>${truncate(l.task_project, 40)}</td>
         <td>${categoryBadge(l.category)}<span style="font-size:11px;color:var(--text-3);display:block;margin-top:2px;">${l.sub_category||''}</span></td>
         <td><strong>${parseFloat(l.hours_spent).toFixed(1)}h</strong></td>
+        <td style="text-align:center;">
+          ${canEdit
+            ? `<input type="checkbox" ${l.is_completed?'checked':''} onchange="toggleCompleted('${l.id}',this.checked)" style="width:16px;height:16px;accent-color:var(--success);cursor:pointer;" title="Mark as completed">`
+            : (l.is_completed ? '<span class="completed-badge">✅ Done</span>' : '—')}
+        </td>
         <td class="td-sm">${truncate(l.accomplishment, 45)}</td>
-        <td class="td-muted td-sm">${truncate(l.comments_notes, 40)}</td>
         <td>${actionBtns}</td>
       </tr>`;
     }).join('');
