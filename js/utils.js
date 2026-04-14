@@ -372,5 +372,6 @@ function injectThemeToggle() {
 
 // ── Stats with completed tasks ─────────────────────────────
 function getCompletedCount(logs) {
-  return (logs || []).filter(l => l.is_completed === true).length;
+  // Handles true, 1, or truthy — DB may return bool or null
+  return (logs || []).filter(l => !!l.is_completed).length;
 }
