@@ -1,4 +1,4 @@
-const CACHE = 'ebs-tracker-v1';
+const CACHE = 'ebs-tracker-v3';
 const ASSETS = [
   '/worktracker/index.html',
   '/worktracker/dashboard.html',
@@ -30,13 +30,17 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Network first for Supabase API calls
-  if (e.request.url.includes('supabase.co')) {
-    e.respondWith(fetch(e.request).catch(() => new Response('', { status: 503 })));
-    return;
-  }
-  // Cache first for app assets
+  // Network first for everything — always serve latest version
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request)
+      .then(response => {
+        // Update cache with fresh response
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE).then(cache => cache.put(e.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
