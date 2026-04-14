@@ -2,7 +2,7 @@
   "name": "EBS Tracker",
   "short_name": "EBS Tracker",
   "description": "EBS Work & Task Tracker",
-  "start_url": "/index.html",
+  "start_url": "/worktracker/index.html",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#080d1a",
@@ -21,6 +21,9 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "business"],
-  "scope": "/"
+  "categories": [
+    "productivity",
+    "business"
+  ],
+  "scope": "/worktracker/"
 }
