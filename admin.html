@@ -14,6 +14,7 @@
   <link rel="apple-touch-startup-image" href="icon-512.png" />
   <title>EBS Tracker — Admin Panel</title>
   <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <style>
     .user-card {
       display:flex;align-items:center;gap:14px;padding:14px;
@@ -71,6 +72,11 @@
           <div class="form-group">
             <label class="form-label">Password <span class="req">*</span></label>
             <input type="password" id="newPassword" class="form-control" placeholder="Min. 6 characters" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" id="newEmail" class="form-control" placeholder="user@company.com" />
+            <div class="form-hint">Used for task assignment notifications</div>
           </div>
           <div class="form-group">
             <label class="form-label">Role</label>
@@ -402,6 +408,51 @@
         <div id="leaveList" style="display:flex;flex-direction:column;gap:8px;">
           <div class="loading"><div class="spinner"></div> Loading…</div>
         </div>
+
+
+      <!-- Email Configuration -->
+      <div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;margin-top:24px;">📧 Email Notifications (EmailJS)</div>
+      <div class="card">
+        <p style="color:var(--text-2);font-size:13px;margin-bottom:6px;line-height:1.6;">
+          Configure <a href="https://emailjs.com" target="_blank" style="color:var(--accent-light);">EmailJS</a> to send email notifications when you assign tasks to employees.
+          Free plan supports 200 emails/month.
+        </p>
+        <p style="color:var(--text-3);font-size:12px;margin-bottom:16px;">
+          Setup: Create account → Add Email Service → Create Template with variables:
+          <code style="background:var(--bg-surface);padding:2px 6px;border-radius:4px;">{{to_email}} {{to_name}} {{from_name}} {{task_title}} {{task_priority}} {{task_due}} {{app_url}}</code>
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+          <div>
+            <label class="form-label">Service ID</label>
+            <input type="text" id="emailjsServiceId" class="form-control" placeholder="service_xxxxxxx" />
+          </div>
+          <div>
+            <label class="form-label">Template ID</label>
+            <input type="text" id="emailjsTemplateId" class="form-control" placeholder="template_xxxxxxx" />
+          </div>
+          <div>
+            <label class="form-label">Public Key</label>
+            <input type="text" id="emailjsPublicKey" class="form-control" placeholder="Your public key" />
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="saveEmailjsConfig()">💾 Save Email Config</button>
+          <button class="btn btn-secondary btn-sm" onclick="testEmail()">📧 Send Test Email</button>
+          <div style="margin-top:4px;">
+            <label class="form-label" style="margin-bottom:4px;">Test recipient email</label>
+            <input type="email" id="testEmailAddr" class="form-control" placeholder="test@example.com" style="max-width:220px;" />
+          </div>
+        </div>
+        <div id="emailConfigStatus" style="margin-top:12px;font-size:12px;color:var(--text-3);"></div>
+      </div>
+
+      <!-- User Email Management -->
+      <div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;margin-top:24px;">👥 User Email Addresses</div>
+      <div class="card">
+        <p style="color:var(--text-2);font-size:13px;margin-bottom:16px;">Set or update the email address for each team member.</p>
+        <div id="userEmailList" style="display:flex;flex-direction:column;gap:8px;">
+          <div class="loading"><div class="spinner"></div> Loading…</div>
+        </div>
       </div>
 
     </div>
@@ -639,6 +690,8 @@ async function loadSettingsTab() {
   loadSubcatList('project');
   populateLeaveUserSelect();
   loadLeaveList();
+  loadEmailjsConfig();
+  loadUserEmailList();
 
   // Load tracker start date
   const startRes = await db.from('app_settings').select('value').eq('key','tracker_start_date').maybeSingle();
@@ -796,7 +849,8 @@ async function createUser() {
 
   btn.disabled = true; btn.textContent = 'Creating…';
   const hash = await hashPassword(password);
-  const { error } = await db.from('users').insert({ username, password_hash: hash, full_name: fullName, role });
+  const email = document.getElementById('newEmail')?.value.trim() || '';
+  const { error } = await db.from('users').insert({ username, password_hash: hash, full_name: fullName, role, email });
 
   if (error) {
     err.textContent = error.code === '23505' ? 'Username already exists' : error.message;
@@ -806,6 +860,7 @@ async function createUser() {
     document.getElementById('newFullName').value = '';
     document.getElementById('newUsername').value = '';
     document.getElementById('newPassword').value = '';
+    if (document.getElementById('newEmail')) document.getElementById('newEmail').value = '';
     await loadUsers();
     renderUserList();
     populateFilters();
@@ -953,6 +1008,7 @@ async function loadEmployeeAnalysis() {
         { label:'Support Hours',   val:stats.supportHours,       avg:avg('supportHours'),        unit:'h', color:'#3b82f6' },
         { label:'Testing Hours',   val:stats.testingHours,       avg:avg('testingHours'),        unit:'h', color:'#8b5cf6' },
         { label:'Project Hours',   val:stats.projectHours,       avg:avg('projectHours'),        unit:'h', color:'#10b981' },
+        { label:'Completed Tasks', val:getCompletedCount(logs), avg:(()=>{const t=allLogs.filter(l=>!!l.is_completed).length; return allUsers.length?Math.round(t/allUsers.length*10)/10:0;})(), unit:'', color:'#059669' },
       ].map(m => {
         const maxV  = Math.max(m.val, m.avg, 1);
         const empPct = Math.round(m.val/maxV*100);
@@ -1243,6 +1299,7 @@ async function loadEmployeeAnalysis() {
         { label:'Support Hours',   val:stats.supportHours,       avg:avg('supportHours'),        unit:'h', color:'#3b82f6' },
         { label:'Testing Hours',   val:stats.testingHours,       avg:avg('testingHours'),        unit:'h', color:'#8b5cf6' },
         { label:'Project Hours',   val:stats.projectHours,       avg:avg('projectHours'),        unit:'h', color:'#10b981' },
+        { label:'Completed Tasks', val:getCompletedCount(logs), avg:(()=>{const t=allLogs.filter(l=>!!l.is_completed).length; return allUsers.length?Math.round(t/allUsers.length*10)/10:0;})(), unit:'', color:'#059669' },
       ].map(m => {
         const maxV  = Math.max(m.val, m.avg, 1);
         const empPct = Math.round(m.val/maxV*100);
@@ -1511,6 +1568,114 @@ function exportUserCSV() {
   exportToCSV(logs, `${user.username}_logs.csv`);
 }
 
+// ── EmailJS Configuration ──────────────────────────────────
+let emailjsConfig = { serviceId:'', templateId:'', publicKey:'' };
+
+async function loadEmailjsConfig() {
+  const { data } = await db.from('app_settings')
+    .select('key,value')
+    .in('key',['emailjs_service_id','emailjs_template_id','emailjs_public_key']);
+  (data||[]).forEach(r => {
+    const map = { emailjs_service_id:'emailjsServiceId', emailjs_template_id:'emailjsTemplateId', emailjs_public_key:'emailjsPublicKey' };
+    const el = document.getElementById(map[r.key]);
+    if (el) el.value = r.value || '';
+    if (r.key==='emailjs_service_id')  emailjsConfig.serviceId  = r.value||'';
+    if (r.key==='emailjs_template_id') emailjsConfig.templateId = r.value||'';
+    if (r.key==='emailjs_public_key')  emailjsConfig.publicKey  = r.value||'';
+  });
+  if (emailjsConfig.publicKey) {
+    try { emailjs.init({ publicKey: emailjsConfig.publicKey }); } catch(e){}
+  }
+}
+
+async function saveEmailjsConfig() {
+  const sid = document.getElementById('emailjsServiceId').value.trim();
+  const tid = document.getElementById('emailjsTemplateId').value.trim();
+  const pk  = document.getElementById('emailjsPublicKey').value.trim();
+  if (!sid || !tid || !pk) { showToast('Fill in all three EmailJS fields','warning'); return; }
+  const upserts = [
+    { key:'emailjs_service_id',  value:sid, label:'EmailJS Service ID',  updated_by:session.id },
+    { key:'emailjs_template_id', value:tid, label:'EmailJS Template ID',  updated_by:session.id },
+    { key:'emailjs_public_key',  value:pk,  label:'EmailJS Public Key',   updated_by:session.id },
+  ];
+  const { error } = await db.from('app_settings').upsert(upserts, { onConflict:'key' });
+  if (error) { showToast('Failed: '+error.message,'error'); return; }
+  emailjsConfig = { serviceId:sid, templateId:tid, publicKey:pk };
+  try { emailjs.init({ publicKey: pk }); } catch(e){}
+  showToast('EmailJS config saved! ✅','success');
+  document.getElementById('emailConfigStatus').innerHTML =
+    '<span style="color:var(--success);">✅ Config saved. EmailJS is ready to send notifications.</span>';
+}
+
+async function testEmail() {
+  const addr = document.getElementById('testEmailAddr').value.trim();
+  if (!addr) { showToast('Enter a test email address','warning'); return; }
+  if (!emailjsConfig.serviceId || !emailjsConfig.templateId || !emailjsConfig.publicKey) {
+    showToast('Save your EmailJS config first','warning'); return;
+  }
+  try {
+    emailjs.init({ publicKey: emailjsConfig.publicKey });
+    await emailjs.send(emailjsConfig.serviceId, emailjsConfig.templateId, {
+      to_email:      addr,
+      to_name:       'Test User',
+      from_name:     session.fullName,
+      task_title:    'Test Task — EBS Tracker',
+      task_priority: 'High',
+      task_due:      'N/A',
+      app_url:       window.location.origin + '/worktracker/tasks.html',
+    });
+    showToast('Test email sent! Check your inbox ✅','success');
+  } catch(err) {
+    showToast('Failed to send: '+(err?.text||err?.message||JSON.stringify(err)),'error');
+  }
+}
+
+async function sendTaskAssignmentEmail(toUser, taskTitle, taskPriority, taskDue) {
+  if (!emailjsConfig.serviceId || !emailjsConfig.templateId || !emailjsConfig.publicKey) return;
+  if (!toUser.email) return; // No email set for this user
+  try {
+    emailjs.init({ publicKey: emailjsConfig.publicKey });
+    await emailjs.send(emailjsConfig.serviceId, emailjsConfig.templateId, {
+      to_email:      toUser.email,
+      to_name:       toUser.full_name,
+      from_name:     session.fullName,
+      task_title:    taskTitle,
+      task_priority: taskPriority,
+      task_due:      taskDue || 'No due date',
+      app_url:       window.location.origin + '/worktracker/tasks.html',
+    });
+    console.log('Email sent to', toUser.email);
+  } catch(err) {
+    console.warn('Email send failed:', err);
+  }
+}
+
+// ── User Email Management ───────────────────────────────────
+async function loadUserEmailList() {
+  const el = document.getElementById('userEmailList');
+  if (!el) return;
+  const { data } = await db.from('users').select('id,full_name,email').order('full_name');
+  if (!data||!data.length) { el.innerHTML='<div style="color:var(--text-3);font-size:13px;">No users found.</div>'; return; }
+  el.innerHTML = data.map(u => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border);flex-wrap:wrap;">
+      <span style="font-weight:600;font-size:13px;min-width:140px;">👤 ${u.full_name}</span>
+      <input type="email" id="uemail-${u.id}" class="form-control" value="${u.email||''}" placeholder="user@company.com" style="flex:1;min-width:200px;" />
+      <button class="btn btn-primary btn-sm" onclick="saveUserEmail('${u.id}')">💾 Save</button>
+    </div>`).join('');
+}
+
+async function saveUserEmail(uid) {
+  const val = document.getElementById('uemail-'+uid)?.value.trim() || '';
+  const { error } = await db.from('users').update({ email: val }).eq('id', uid);
+  if (error) showToast('Failed: '+error.message,'error');
+  else {
+    showToast('Email saved ✅','success');
+    // Update local cache
+    const u = allUsers.find(x=>x.id===uid);
+    if (u) u.email = val;
+  }
+}
+
 // ── Reset Password ─────────────────────────────────────────
 let resetPassUserId = null;
 
@@ -1662,6 +1827,7 @@ function renderComparison() {
       { label:'Peak Day Hours',     icon:'⚡', color:'#06b6d4', get:u=>u.stats.maxDayHours,        fmt:v=>v+'h' },
       { label:'Top Support Worker', icon:'🛡️', color:'#3b82f6', get:u=>u.stats.supportHours,      fmt:v=>v+'h' },
       { label:'Top Project Worker', icon:'🚀', color:'#10b981', get:u=>u.stats.projectHours,       fmt:v=>v+'h' },
+      { label:'Most Completed',    icon:'✅', color:'#059669', get:u=>getCompletedCount(u.logs), fmt:v=>v+' tasks' },
     ];
     document.getElementById('compSpotlights').innerHTML = spotlights.map(sp => {
       const sorted = [...userStats].sort((a,b) => sp.get(b) - sp.get(a));
@@ -1890,6 +2056,7 @@ function renderComparison() {
       {label:'🏆 Best Streak',      get:u=>u.stats.maxStreak,          fmt:v=>v+'d'},
       {label:'⚡ Peak Day Hours',   get:u=>u.stats.maxDayHours,        fmt:v=>v+'h'},
       {label:'✅ Achievements',       get:u=>u.stats.accomplishmentCount, fmt:v=>v+' logs'},
+      {label:'☑️ Completed Tasks',    get:u=>getCompletedCount(u.logs),   fmt:v=>v+' tasks'},
     ];
     document.getElementById('compHead').innerHTML='<tr><th style="text-align:left;min-width:180px;">Metric</th>'
       +userStats.map((us,i)=>'<th style="text-align:center;min-width:90px;border-bottom:2px solid '+COLORS[i%COLORS.length]+';">'+us.user.full_name.split(' ')[0]+'<br><span style="font-size:10px;color:'+us.lvl.color+';font-weight:600;">'+us.lvl.icon+' Lv.'+us.lvl.level+'</span></th>').join('')
@@ -2144,6 +2311,7 @@ async function loadEmployeeAnalysis() {
         { label:'Support Hours',   val:stats.supportHours,       avg:avg('supportHours'),        unit:'h', color:'#3b82f6' },
         { label:'Testing Hours',   val:stats.testingHours,       avg:avg('testingHours'),        unit:'h', color:'#8b5cf6' },
         { label:'Project Hours',   val:stats.projectHours,       avg:avg('projectHours'),        unit:'h', color:'#10b981' },
+        { label:'Completed Tasks', val:getCompletedCount(logs), avg:(()=>{const t=allLogs.filter(l=>!!l.is_completed).length; return allUsers.length?Math.round(t/allUsers.length*10)/10:0;})(), unit:'', color:'#059669' },
       ].map(m => {
         const maxV  = Math.max(m.val, m.avg, 1);
         const empPct = Math.round(m.val/maxV*100);
