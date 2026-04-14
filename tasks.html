@@ -288,6 +288,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
 <script src="js/auth.js"></script>
@@ -693,6 +694,35 @@ async function saveAssignedTask() {
   if (error) { err.textContent = error.message; err.classList.add('show'); }
   else {
     showToast('Task assigned!', 'success');
+    // Send email notification
+    try {
+      const [ejsRes, userRes] = await Promise.all([
+        db.from('app_settings').select('key,value').in('key',['emailjs_service_id','emailjs_template_id','emailjs_public_key']),
+        db.from('users').select('full_name,email').eq('id', toUid).maybeSingle()
+      ]);
+      const cfg = {};
+      (ejsRes.data||[]).forEach(r => {
+        if (r.key==='emailjs_service_id')  cfg.sid = r.value;
+        if (r.key==='emailjs_template_id') cfg.tid = r.value;
+        if (r.key==='emailjs_public_key')  cfg.pk  = r.value;
+      });
+      const toUser = userRes.data;
+      if (cfg.sid && cfg.tid && cfg.pk && toUser?.email) {
+        emailjs.init({ publicKey: cfg.pk });
+        await emailjs.send(cfg.sid, cfg.tid, {
+          to_email:      toUser.email,
+          to_name:       toUser.full_name,
+          from_name:     session.fullName,
+          task_title:    title,
+          task_priority: selectedAssignPriority,
+          task_due:      due || 'No due date',
+          app_url:       window.location.origin + '/worktracker/tasks.html',
+        });
+        showToast('Task assigned + email sent! ✅', 'success');
+      }
+    } catch(emailErr) {
+      console.warn('Email failed:', emailErr);
+    }
     closeAssignModal();
     await loadTasks();
     renderBoard();
