@@ -282,7 +282,7 @@ function renderSidebar(activePage) {
     ? `<a href="admin.html" class="nav-link ${activePage === 'admin' ? 'active' : ''}"><span class="nav-icon">👑</span><span>Admin Panel</span></a>` : '';
 
   document.getElementById('app-sidebar').innerHTML = `
-    <div class="sidebar-header"><div class="app-logo"><img src="logo.png" alt="EBS" style="height:28px;mix-blend-mode:screen;flex-shrink:0;" /><span class="logo-text">EBS Tracker</span></div></div>
+    <div class="sidebar-header"><div class="app-logo"><img src="logo.png" alt="EBS" class="logo-dark" style="height:28px;mix-blend-mode:screen;flex-shrink:0;" /><img src="logo-light.png" alt="EBS" class="logo-light" style="height:28px;flex-shrink:0;" /><span class="logo-text">EBS Tracker</span></div></div>
     <div class="sidebar-user">
       <div class="user-avatar lvl-1" id="sb-avatar">${initials}</div>
       <div class="user-info"><div class="user-name">${session.fullName}</div><div class="user-level-tag" id="sb-level">Loading...</div></div>
@@ -338,7 +338,7 @@ function closeSidebar() {
 const THEME_KEY = 'ebs_theme';
 
 function initTheme() {
-  const saved = localStorage.getItem(THEME_KEY) || 'dark';
+  const saved = localStorage.getItem(THEME_KEY) || 'light';
   applyTheme(saved);
 }
 
@@ -365,7 +365,7 @@ function injectThemeToggle() {
   btn.id        = 'themeToggle';
   btn.className = 'theme-toggle';
   btn.title     = 'Toggle light/dark mode';
-  btn.textContent = (localStorage.getItem(THEME_KEY) || 'dark') === 'light' ? '🌙' : '☀️';
+  btn.textContent = (localStorage.getItem(THEME_KEY) || 'light') === 'light' ? '🌙' : '☀️';
   btn.onclick   = toggleTheme;
   document.body.appendChild(btn);
 }
