@@ -1,5 +1,5 @@
 // ============================================================
-// WorkTracker — Utility Functions (v2)
+// EBS Tracker — Utility Functions (v2)
 // ============================================================
 
 /* ── Date helpers ─────────────────────────────────────────── */
@@ -282,7 +282,7 @@ function renderSidebar(activePage) {
     ? `<a href="admin.html" class="nav-link ${activePage === 'admin' ? 'active' : ''}"><span class="nav-icon">👑</span><span>Admin Panel</span></a>` : '';
 
   document.getElementById('app-sidebar').innerHTML = `
-    <div class="sidebar-header"><div class="app-logo"><span class="logo-icon">⚔️</span><span class="logo-text">WorkTracker</span></div></div>
+    <div class="sidebar-header"><div class="app-logo"><img src="logo.png" alt="EBS" style="height:28px;mix-blend-mode:screen;flex-shrink:0;" /><span class="logo-text">EBS Tracker</span></div></div>
     <div class="sidebar-user">
       <div class="user-avatar lvl-1" id="sb-avatar">${initials}</div>
       <div class="user-info"><div class="user-name">${session.fullName}</div><div class="user-level-tag" id="sb-level">Loading...</div></div>
@@ -332,4 +332,45 @@ function truncate(str, n = 50) {
 function closeSidebar() {
   document.getElementById('app-sidebar')?.classList.remove('open');
   document.getElementById('sidebarOverlay')?.classList.remove('open');
+}
+
+// ── Theme Management ───────────────────────────────────────
+const THEME_KEY = 'ebs_theme';
+
+function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY) || 'dark';
+  applyTheme(saved);
+}
+
+function applyTheme(theme) {
+  if (theme === 'light') {
+    document.body.classList.add('light-mode');
+  } else {
+    document.body.classList.remove('light-mode');
+  }
+  localStorage.setItem(THEME_KEY, theme);
+  // Update toggle icon
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
+}
+
+function toggleTheme() {
+  const current = localStorage.getItem(THEME_KEY) || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+function injectThemeToggle() {
+  if (document.getElementById('themeToggle')) return;
+  const btn = document.createElement('button');
+  btn.id        = 'themeToggle';
+  btn.className = 'theme-toggle';
+  btn.title     = 'Toggle light/dark mode';
+  btn.textContent = (localStorage.getItem(THEME_KEY) || 'dark') === 'light' ? '🌙' : '☀️';
+  btn.onclick   = toggleTheme;
+  document.body.appendChild(btn);
+}
+
+// ── Stats with completed tasks ─────────────────────────────
+function getCompletedCount(logs) {
+  return (logs || []).filter(l => l.is_completed === true).length;
 }
