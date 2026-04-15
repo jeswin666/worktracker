@@ -166,7 +166,7 @@
 <script src="js/utils.js"></script>
 <script>
   const session = requireAuth();
-  let allLogs = [], allUsers = [], activeUserId = 'all', editingId = null, deletingId = null;
+  let allLogs = [], allUsers = [], allSubcats = {}, activeUserId = 'all', editingId = null, deletingId = null;
 
   // ── Init ──────────────────────────────────────────────────
   async function loadAllSubcats() {
