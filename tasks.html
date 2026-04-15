@@ -624,8 +624,7 @@ async function submitTaskLog() {
 
   if (logErr) { err.textContent = logErr.message; err.classList.add('show'); btn.disabled=false; btn.innerHTML='💾 Save to Work Log'; return; }
 
-  // Mark priority task as logged
-  await db.from('priority_tasks').update({ status: 'logged' }).eq('id', loggingTaskId);
+  // Note: task stays 'pending' so it can be logged against multiple times (multi-day tasks)
 
   showToast('Logged to work log! ✅', 'success');
   closeLogModal();
