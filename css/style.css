@@ -101,8 +101,21 @@ input, select, textarea { font-family: 'DM Sans', sans-serif; }
 .main-content {
   margin-left: var(--sidebar-w);
   flex: 1;
-  padding: 36px 40px;
+  padding: 36px 48px;
   min-height: 100vh;
+}
+/* Center page content with max-width on large screens */
+.main-content > * {
+  max-width: 1200px;
+}
+.main-content .page-header,
+.main-content > .card,
+.main-content > .kpi-grid,
+.main-content > .wt-kpi-grid,
+.main-content > .charts-grid,
+.main-content > div,
+.main-content > table {
+  max-width: 1200px;
 }
 
 /* ── Sidebar ──────────────────────────────────────────────── */
