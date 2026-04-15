@@ -72,8 +72,9 @@ function getDailyHours(date) {
  * @param {Array}  userLeaves   - Array of {start_date, end_date} for this user
  * @returns {object}
  */
-function getWorkingDaysInfo(warDaysOff = 0, userLeaves = [], warDayRanges = []) {
-  const start = new Date(TRACKER_START_DATE);
+function getWorkingDaysInfo(warDaysOff = 0, userLeaves = [], warDayRanges = [], startDateOverride = null) {
+  const startDateStr = startDateOverride || TRACKER_START_DATE;
+  const start = new Date(startDateStr);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -158,7 +159,7 @@ function getWorkingDaysInfo(warDaysOff = 0, userLeaves = [], warDayRanges = []) 
     ramadanWorkingDays,
     normalWorkingDays,
     holidayCount,
-    periodLabel: `${formatDate(TRACKER_START_DATE)} → ${formatDate(toDateStr(today))}`,
+    periodLabel: `${formatDate(startDateStr)} → ${formatDate(toDateStr(today))}`,
   };
 }
 
@@ -223,13 +224,31 @@ function calculateStats(logs) {
   const sorted = Object.keys(byDate).sort();
   let maxStreak = sorted.length > 0 ? 1 : 0, curStreak = sorted.length > 0 ? 1 : 0;
   for (let i = 1; i < sorted.length; i++) {
-    const diff = (new Date(sorted[i]) - new Date(sorted[i - 1])) / 86400000;
-    if (diff === 1) { curStreak++; maxStreak = Math.max(maxStreak, curStreak); }
+    const prev = new Date(sorted[i - 1]);
+    const curr = new Date(sorted[i]);
+    // Count working days between prev and curr (skip Fri/Sat weekends)
+    let workingDaysDiff = 0;
+    const scan = new Date(prev); scan.setDate(scan.getDate() + 1);
+    while (scan <= curr) {
+      const dow = scan.getDay();
+      if (dow !== 5 && dow !== 6) workingDaysDiff++;
+      scan.setDate(scan.getDate() + 1);
+    }
+    if (workingDaysDiff === 1) { curStreak++; maxStreak = Math.max(maxStreak, curStreak); }
     else curStreak = 1;
   }
   if (sorted.length > 0) {
     const today = new Date(); today.setHours(0,0,0,0);
-    if (Math.floor((today - new Date(sorted[sorted.length - 1])) / 86400000) > 1) curStreak = 0;
+    const lastLog = new Date(sorted[sorted.length - 1]);
+    // Count working days since last log
+    let daysSince = 0;
+    const scan = new Date(lastLog); scan.setDate(scan.getDate() + 1);
+    while (scan <= today) {
+      const dow = scan.getDay();
+      if (dow !== 5 && dow !== 6) daysSince++;
+      scan.setDate(scan.getDate() + 1);
+    }
+    if (daysSince > 1) curStreak = 0;
   }
 
   const byWeek = {};
