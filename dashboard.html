@@ -33,39 +33,28 @@
 
     <!-- Filters row -->
     <div style="margin-bottom:20px;">
-      <div>
-        <!-- User tabs -->
-        <div class="user-tabs" id="userTabs">
-          <div style="font-size:12px;color:var(--text-3);font-weight:600;align-self:center;margin-right:4px;">FILTER:</div>
-        </div>
-
-        <!-- Filter bar -->
-        <div class="filter-bar">
-          <span class="filter-label">Category:</span>
-          <select class="form-control" id="filterCategory" style="max-width:140px;" onchange="onCatFilterChange()">
-            <option value="">All Categories</option>
-            <option value="Support">Support</option>
-            <option value="Testing">Testing</option>
-            <option value="Project">Project</option>
-          </select>
-          <select class="form-control" id="filterSubCategory" style="max-width:180px;">
-            <option value="">All Sub-Categories</option>
-          </select>
-          <span class="filter-label">Month:</span>
-          <select class="form-control" id="filterMonth" style="max-width:150px;">
-            <option value="">All Months</option>
-          </select>
-          <input type="text" class="form-control" id="filterSearch" placeholder="🔍 Search tasks…" style="max-width:200px;" />
-          <button class="btn btn-secondary btn-sm" id="clearFilters">Clear</button>
-        </div>
+      <!-- User tabs -->
+      <div class="user-tabs" id="userTabs">
+        <div style="font-size:12px;color:var(--text-3);font-weight:600;align-self:center;margin-right:4px;">FILTER:</div>
       </div>
-
-      <!-- Leaderboard widget -->
-      <div class="card card-sm">
-        <div class="card-title">🏆 Leaderboard</div>
-        <div class="leaderboard-list" id="leaderboard">
-          <div class="loading"><div class="spinner"></div></div>
-        </div>
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <span class="filter-label">Category:</span>
+        <select class="form-control" id="filterCategory" style="max-width:140px;" onchange="onCatFilterChange()">
+          <option value="">All Categories</option>
+          <option value="Support">Support</option>
+          <option value="Testing">Testing</option>
+          <option value="Project">Project</option>
+        </select>
+        <select class="form-control" id="filterSubCategory" style="max-width:180px;">
+          <option value="">All Sub-Categories</option>
+        </select>
+        <span class="filter-label">Month:</span>
+        <select class="form-control" id="filterMonth" style="max-width:150px;">
+          <option value="">All Months</option>
+        </select>
+        <input type="text" class="form-control" id="filterSearch" placeholder="🔍 Search tasks…" style="max-width:200px;" />
+        <button class="btn btn-secondary btn-sm" id="clearFilters">Clear</button>
       </div>
     </div>
 
