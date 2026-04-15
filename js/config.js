@@ -83,12 +83,25 @@ const BADGES = [
   { id: 'workhorse',        name: 'Workhorse',        desc: 'Log 250+ total hours',                icon: '🏇', check: (s) => s.totalHours >= 250 },
 ];
 
-// Category colors
-const CAT_COLORS = {
-  'Support': { bg: '#1d3a6b', border: '#3b82f6', text: '#93c5fd', dot: '#3b82f6' },
-  'Testing': { bg: '#2d1b69', border: '#8b5cf6', text: '#c4b5fd', dot: '#8b5cf6' },
-  'Project': { bg: '#064e3b', border: '#10b981', text: '#6ee7b7', dot: '#10b981' },
+// Category colors — dark mode
+const CAT_COLORS_DARK = {
+  'Support': { bg: '#1d3a6b', border: '#3b82f6', text: '#93c5fd' },
+  'Testing': { bg: '#2d1b69', border: '#8b5cf6', text: '#c4b5fd' },
+  'Project': { bg: '#064e3b', border: '#10b981', text: '#6ee7b7' },
 };
+// Category colors — light mode (warm ivory theme)
+const CAT_COLORS_LIGHT = {
+  'Support': { bg: '#dbeafe', border: '#2563eb', text: '#1d4ed8' },
+  'Testing': { bg: '#ede9fe', border: '#7c3aed', text: '#5b21b6' },
+  'Project': { bg: '#d1fae5', border: '#059669', text: '#065f46' },
+};
+function getCatColors() {
+  return document.body.classList.contains('light-mode') ? CAT_COLORS_LIGHT : CAT_COLORS_DARK;
+}
+// Keep CAT_COLORS as a getter-like alias for backward compatibility
+const CAT_COLORS = new Proxy({}, {
+  get(_, cat) { return getCatColors()[cat]; }
+});
 
 // ============================================================
 // Sub-Category Definitions
